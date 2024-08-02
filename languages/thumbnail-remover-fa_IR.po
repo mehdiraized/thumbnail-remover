@@ -1,0 +1,71 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: WordPress Thumbnail Remover and Size Manager\n"
+"POT-Creation-Date: 2023-07-31 12:00+0000\n"
+"PO-Revision-Date: 2023-07-31 12:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: fa_IR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n==0 || n==1);\n"
+
+msgid "Thumbnail Manager"
+msgstr "مدیریت تصاویر بند انگشتی"
+
+msgid "Manage Thumbnail Sizes"
+msgstr "مدیریت اندازه‌های تصاویر بند انگشتی"
+
+msgid "Select Thumbnail Sizes to Disable:"
+msgstr "انتخاب اندازه‌های تصاویر بند انگشتی برای غیرفعال کردن:"
+
+msgid "Note:"
+msgstr "توجه:"
+
+msgid "Disabling sizes here will prevent WordPress from generating these thumbnail sizes for future uploads. It will not affect existing thumbnails."
+msgstr "غیرفعال کردن اندازه‌ها در اینجا از ایجاد این اندازه‌های تصاویر بند انگشتی برای آپلودهای آینده جلوگیری می‌کند. این کار بر روی تصاویر بند انگشتی موجود تأثیری ندارد."
+
+msgid "Save Changes"
+msgstr "ذخیره تغییرات"
+
+msgid "Remove Existing Thumbnails"
+msgstr "حذف تصاویر بند انگشتی موجود"
+
+msgid "Select Thumbnail Sizes to Remove:"
+msgstr "انتخاب اندازه‌های تصاویر بند انگشتی برای حذف:"
+
+msgid "Select All"
+msgstr "انتخاب همه"
+
+msgid "image"
+msgid_plural "images"
+msgstr[0] "تصویر"
+msgstr[1] "تصویر"
+
+msgid "Select Folders to Process:"
+msgstr "انتخاب پوشه‌ها برای پردازش:"
+
+msgid "Warning:"
+msgstr "هشدار:"
+
+msgid "This action cannot be undone. Please backup your files before proceeding."
+msgstr "این عمل قابل بازگشت نیست. لطفاً قبل از ادامه، از فایل‌های خود پشتیبان تهیه کنید."
+
+msgid "Remove Selected Thumbnails"
+msgstr "حذف تصاویر بند انگشتی انتخاب شده"
+
+msgid "Image sizes have been updated. The selected sizes will not be generated for future uploads."
+msgstr "اندازه‌های تصویر به‌روزرسانی شده‌اند. اندازه‌های انتخاب شده برای آپلودهای آینده ایجاد نخواهند شد."
+
+msgid "Support Us"
+msgstr "حمایت کنید"
+
+msgid "Thank you for using thumbnail-remover! This plugin is a labor of love, designed to help you streamline your WordPress experience by removing unwanted thumbnails. If you find it useful, please consider supporting its development."
+msgstr "از استفاده شما از thumbnail-remover متشکریم! این افزونه با عشق طراحی شده است تا به شما کمک کند تجربه وردپرس خود را با حذف تصاویر کوچک ناخواسته ساده کنید. اگر آن را مفید می‌دانید، لطفاً در توسعه آن حمایت کنید."
+
+msgid "Your support helps cover the costs of maintaining and improving the plugin, ensuring it remains free and accessible for everyone. Every little bit helps and is greatly appreciated!"
+msgstr "حمایت شما به پوشش هزینه‌های نگهداری و بهبود افزونه کمک می‌کند، و اطمینان می‌دهد که برای همه رایگان و قابل دسترس باقی بماند. هر کمکی ارزشمند است و بسیار قدردانی می‌شود!"
+
+msgid "Thank you for your generosity and support!"
+msgstr "از سخاوت و حمایت شما متشکریم!"

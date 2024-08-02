@@ -1,0 +1,39 @@
+.wrt-admin {
+	display: flex;
+	flex-direction: column;
+	gap: 1rem;
+}
+
+/* .wrt-row {
+	display: flex;
+	justify-content: space-between;
+	gap: 1rem;
+} */
+
+.wrt-box {
+	background-color: #fff;
+	padding: 0.25rem 1rem 1rem;
+	border-radius: 5px;
+	box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.wrt-box h3 {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	font-size: 0.875rem;
+}
+
+.wrt-list {
+	list-style: none;
+	columns: 3;
+}
+
+.wrt-left {
+	direction: ltr;
+}
+
+.wrt-list-4 {
+	columns: 4;
+}
