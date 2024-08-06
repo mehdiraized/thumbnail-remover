@@ -3,7 +3,7 @@
 Plugin Name: Thumbnail Remover and Size Manager
 Plugin URI: https://wordpress.org/plugins/thumbnail-remover
 Description: Removes existing thumbnails, disables thumbnail generation, and manages thumbnail sizes
-Version: 1.0.3
+Version: 1.0.4
 Author: Mehdi Rezaei
 Author URI: https://mehd.ir
 License: GPLv2 or later
@@ -42,382 +42,389 @@ If you find this plugin useful, please consider supporting its development by [b
 
 function thumbnail_manager_enqueue_styles($hook)
 {
-  if ('tools_page_thumbnail-manager' !== $hook) {
-    return;
-  }
-  wp_enqueue_style(
-    'thumbnail-manager-style',
-    plugin_dir_url(__FILE__) . 'assets/css/style.css',
-    array(),
-    filemtime(plugin_dir_path(__FILE__) . 'assets/css/style.css')
-  );
+	if ('tools_page_thumbnail-manager' !== $hook) {
+		return;
+	}
+	wp_enqueue_style(
+		'thumbnail-manager-style',
+		plugin_dir_url(__FILE__) . 'assets/css/style.css',
+		array(),
+		filemtime(plugin_dir_path(__FILE__) . 'assets/css/style.css')
+	);
 }
 add_action('admin_enqueue_scripts', 'thumbnail_manager_enqueue_styles');
 
 // Load plugin text domain for translations
 function thumbnail_remover_load_textdomain()
 {
-  load_plugin_textdomain('thumbnail-remover', false, dirname(plugin_basename(__FILE__)) . '/languages');
+	load_plugin_textdomain('thumbnail-remover', false, dirname(plugin_basename(__FILE__)) . '/languages');
 }
 add_action('plugins_loaded', 'thumbnail_remover_load_textdomain');
 
 // Add error logging function
 function log_error($message)
 {
-  error_log("Thumbnail Remover Error: " . $message);
+	error_log("Thumbnail Remover Error: " . $message);
 }
 
 // Get all registered image sizes
 function get_all_image_sizes()
 {
-  global $_wp_additional_image_sizes;
-  $sizes = array();
+	global $_wp_additional_image_sizes;
+	$sizes = array();
 
-  foreach (get_intermediate_image_sizes() as $_size) {
-    if (in_array($_size, array('thumbnail', 'medium', 'medium_large', 'large'))) {
-      $sizes[$_size]['width'] = get_option("{$_size}_size_w");
-      $sizes[$_size]['height'] = get_option("{$_size}_size_h");
-      $sizes[$_size]['crop'] = (bool) get_option("{$_size}_crop");
-    } elseif (isset($_wp_additional_image_sizes[$_size])) {
-      $sizes[$_size] = array(
-        'width' => $_wp_additional_image_sizes[$_size]['width'],
-        'height' => $_wp_additional_image_sizes[$_size]['height'],
-        'crop' => $_wp_additional_image_sizes[$_size]['crop']
-      );
-    }
-  }
+	foreach (get_intermediate_image_sizes() as $_size) {
+		if (in_array($_size, array('thumbnail', 'medium', 'medium_large', 'large'))) {
+			$sizes[$_size]['width'] = get_option("{$_size}_size_w");
+			$sizes[$_size]['height'] = get_option("{$_size}_size_h");
+			$sizes[$_size]['crop'] = (bool) get_option("{$_size}_crop");
+		} elseif (isset($_wp_additional_image_sizes[$_size])) {
+			$sizes[$_size] = array(
+				'width' => $_wp_additional_image_sizes[$_size]['width'],
+				'height' => $_wp_additional_image_sizes[$_size]['height'],
+				'crop' => $_wp_additional_image_sizes[$_size]['crop']
+			);
+		}
+	}
 
-  return $sizes;
+	return $sizes;
 }
 
 // Function to get all thumbnail sizes from files with count
 function get_all_thumbnail_sizes_with_count()
 {
-  try {
-    $upload_dir = wp_upload_dir();
-    $base_dir = $upload_dir['basedir'];
+	try {
+		$upload_dir = wp_upload_dir();
+		$base_dir = $upload_dir['basedir'];
 
-    if (!is_dir($base_dir)) {
-      throw new Exception("Upload directory does not exist: $base_dir");
-    }
+		if (!is_dir($base_dir)) {
+			throw new Exception("Upload directory does not exist: $base_dir");
+		}
 
-    $files = new RecursiveIteratorIterator(
-      new RecursiveDirectoryIterator($base_dir),
-      RecursiveIteratorIterator::LEAVES_ONLY
-    );
+		$files = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator($base_dir),
+			RecursiveIteratorIterator::LEAVES_ONLY
+		);
 
-    $sizes = array();
+		$sizes = array();
 
-    foreach ($files as $file) {
-      if (!$file->isDir() && is_thumbnail($file)) {
-        $filename = $file->getFilename();
-        if (preg_match('/-(\d+)x(\d+)\.(jpg|jpeg|png|gif)$/', $filename, $matches)) {
-          $size = $matches[1] . 'x' . $matches[2];
-          if (!isset($sizes[$size])) {
-            $sizes[$size] = 0;
-          }
-          $sizes[$size]++;
-        }
-      }
-    }
+		foreach ($files as $file) {
+			if (!$file->isDir() && is_thumbnail($file)) {
+				$filename = $file->getFilename();
+				if (preg_match('/-(\d+)x(\d+)\.(jpg|jpeg|png|gif)$/', $filename, $matches)) {
+					$size = $matches[1] . 'x' . $matches[2];
+					if (!isset($sizes[$size])) {
+						$sizes[$size] = 0;
+					}
+					$sizes[$size]++;
+				}
+			}
+		}
 
-    ksort($sizes);
-    return $sizes;
-  } catch (Exception $e) {
-    log_error("Error in get_all_thumbnail_sizes_with_count: " . $e->getMessage());
-    return array();
-  }
+		ksort($sizes);
+		return $sizes;
+	} catch (Exception $e) {
+		log_error("Error in get_all_thumbnail_sizes_with_count: " . $e->getMessage());
+		return array();
+	}
 }
 
 // Function to get all year/month folders with image count
 function get_upload_folders_with_count()
 {
-  try {
-    $upload_dir = wp_upload_dir();
-    $base_dir = $upload_dir['basedir'];
+	try {
+		$upload_dir = wp_upload_dir();
+		$base_dir = $upload_dir['basedir'];
 
-    if (!is_dir($base_dir)) {
-      throw new Exception("Upload directory does not exist: $base_dir");
-    }
+		if (!is_dir($base_dir)) {
+			throw new Exception("Upload directory does not exist: $base_dir");
+		}
 
-    $folders = array();
+		$folders = array();
 
-    $years = scandir($base_dir);
-    foreach ($years as $year) {
-      if (is_numeric($year) && strlen($year) == 4) {
-        $year_path = $base_dir . '/' . $year;
-        if (is_dir($year_path)) {
-          $months = scandir($year_path);
-          foreach ($months as $month) {
-            if (is_numeric($month) && strlen($month) == 2) {
-              $folder = $year . '/' . $month;
-              $folder_path = $base_dir . '/' . $folder;
-              $count = count(glob($folder_path . '/*.*'));
-              $folders[$folder] = $count;
-            }
-          }
-        }
-      }
-    }
+		$years = scandir($base_dir);
+		foreach ($years as $year) {
+			if (is_numeric($year) && strlen($year) == 4) {
+				$year_path = $base_dir . '/' . $year;
+				if (is_dir($year_path)) {
+					$months = scandir($year_path);
+					foreach ($months as $month) {
+						if (is_numeric($month) && strlen($month) == 2) {
+							$folder = $year . '/' . $month;
+							$folder_path = $base_dir . '/' . $folder;
+							$count = count(glob($folder_path . '/*.*'));
+							$folders[$folder] = $count;
+						}
+					}
+				}
+			}
+		}
 
-    krsort($folders);
-    return $folders;
-  } catch (Exception $e) {
-    log_error("Error in get_upload_folders_with_count: " . $e->getMessage());
-    return array();
-  }
+		krsort($folders);
+		return $folders;
+	} catch (Exception $e) {
+		log_error("Error in get_upload_folders_with_count: " . $e->getMessage());
+		return array();
+	}
 }
 
 // Function to check if a file is a WordPress-generated thumbnail
 function is_thumbnail($file)
 {
-  return preg_match('/-\d+x\d+\.(jpg|jpeg|png|gif)$/', $file->getFilename());
+	return preg_match('/-\d+x\d+\.(jpg|jpeg|png|gif)$/', $file->getFilename());
 }
 
 // Remove existing thumbnails
 function remove_existing_thumbnails($selected_sizes, $selected_folders)
 {
-  try {
-    $upload_dir = wp_upload_dir();
-    $base_dir = $upload_dir['basedir'];
+	try {
+		$upload_dir = wp_upload_dir();
+		$base_dir = $upload_dir['basedir'];
 
-    $count = 0;
-    $total_size = 0;
+		$count = 0;
+		$total_size = 0;
 
-    foreach ($selected_folders as $folder) {
-      $folder_path = $base_dir . '/' . $folder;
-      if (!is_dir($folder_path)) {
-        throw new Exception("Folder does not exist: $folder_path");
-      }
+		foreach ($selected_folders as $folder) {
+			$folder_path = $base_dir . '/' . $folder;
+			if (!is_dir($folder_path)) {
+				throw new Exception("Folder does not exist: $folder_path");
+			}
 
-      $files = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($folder_path),
-        RecursiveIteratorIterator::LEAVES_ONLY
-      );
+			$files = new RecursiveIteratorIterator(
+				new RecursiveDirectoryIterator($folder_path),
+				RecursiveIteratorIterator::LEAVES_ONLY
+			);
 
-      foreach ($files as $file) {
-        if (!$file->isDir() && is_thumbnail($file)) {
-          $filename = $file->getFilename();
-          if (empty($selected_sizes) || any_size_matches($filename, $selected_sizes)) {
-            $file_size = $file->getSize();
-            if (wp_delete_file($file->getRealPath())) {
-              $count++;
-              $total_size += $file_size;
-            } else {
-              log_error("Failed to delete file: " . $file->getRealPath());
-            }
-          }
-        }
-      }
-    }
+			foreach ($files as $file) {
+				if (!$file->isDir() && is_thumbnail($file)) {
+					$filename = $file->getFilename();
+					if (empty($selected_sizes) || any_size_matches($filename, $selected_sizes)) {
+						$file_size = $file->getSize();
+						if (wp_delete_file($file->getRealPath())) {
+							$count++;
+							$total_size += $file_size;
+						} else {
+							log_error("Failed to delete file: " . $file->getRealPath());
+						}
+					}
+				}
+			}
+		}
 
-    return array('count' => $count, 'size' => $total_size);
-  } catch (Exception $e) {
-    log_error("Error in remove_existing_thumbnails: " . $e->getMessage());
-    return array('count' => 0, 'size' => 0);
-  }
+		return array('count' => $count, 'size' => $total_size);
+	} catch (Exception $e) {
+		log_error("Error in remove_existing_thumbnails: " . $e->getMessage());
+		return array('count' => 0, 'size' => 0);
+	}
 }
 
 // Disable specific thumbnail sizes
 function disable_specific_image_sizes($sizes_to_disable)
 {
-  if (!empty($sizes_to_disable)) {
-    add_filter('intermediate_image_sizes_advanced', function ($sizes) use ($sizes_to_disable) {
-      foreach ($sizes_to_disable as $size) {
-        unset($sizes[$size]);
-      }
-      return $sizes;
-    });
-  }
+	if (!empty($sizes_to_disable)) {
+		add_filter('intermediate_image_sizes_advanced', function ($sizes) use ($sizes_to_disable) {
+			foreach ($sizes_to_disable as $size) {
+				unset($sizes[$size]);
+			}
+			return $sizes;
+		});
+	}
 }
 
 // Add admin menu
 function thumbnail_remover_menu()
 {
-  add_management_page(
-    __('Thumbnail Manager', 'thumbnail-remover'),
-    __('Thumbnail Manager', 'thumbnail-remover'),
-    'manage_options',
-    'thumbnail-manager',
-    'thumbnail_manager_page'
-  );
+	add_management_page(
+		__('Thumbnail Manager', 'thumbnail-remover'),
+		__('Thumbnail Manager', 'thumbnail-remover'),
+		'manage_options',
+		'thumbnail-manager',
+		'thumbnail_manager_page'
+	);
 }
 add_action('admin_menu', 'thumbnail_remover_menu');
 
 // Enqueue necessary scripts
 function thumbnail_manager_enqueue_scripts($hook)
 {
-  if ('tools_page_thumbnail-manager' !== $hook) {
-    return;
-  }
-  wp_enqueue_script('jquery');
+	if ('tools_page_thumbnail-manager' !== $hook) {
+		return;
+	}
+	wp_enqueue_script('jquery');
 
-  wp_register_script(
-    'thumbnail-manager-script',
-    plugin_dir_url(__FILE__) . '/assets/js/script.js',
-    array('jquery'),
-    '1.0',
-    true
-  );
-  // Enqueue the script
-  wp_enqueue_script('thumbnail-manager-script');
-  wp_localize_script(
-    'thumbnail-manager-script',
-    'thumbnailManager',
-    array(
-      'ajax_url' => admin_url('admin-ajax.php'),
-      'nonce' => wp_create_nonce('thumbnail-manager-nonce')
-    )
-  );
+	wp_enqueue_script(
+		'thumbnail-manager-script',
+		plugin_dir_url(__FILE__) . 'assets/js/script.js',
+		array('jquery'),
+		filemtime(plugin_dir_path(__FILE__) . 'assets/js/script.js'),
+		true
+	);
+	wp_localize_script(
+		'thumbnail-manager-script',
+		'thumbnailManager',
+		array(
+			'ajax_url' => admin_url('admin-ajax.php'),
+			'nonce' => wp_create_nonce('thumbnail-manager-nonce'),
+			'confirm_message' => __('Are you sure you want to remove the selected thumbnails? This action cannot be undone.', 'thumbnail-remover')
+		)
+	);
 }
 add_action('admin_enqueue_scripts', 'thumbnail_manager_enqueue_scripts');
 
 // AJAX handler for removing thumbnails
 function remove_thumbnails_ajax()
 {
-  try {
-    check_ajax_referer('thumbnail-manager-nonce', 'nonce');
+	try {
+		check_ajax_referer('thumbnail-manager-nonce', 'nonce');
 
-    if (!current_user_can('manage_options')) {
-      throw new Exception('Unauthorized');
-    }
+		if (!current_user_can('manage_options')) {
+			throw new Exception(__('Unauthorized access', 'thumbnail-remover'));
+		}
 
-    $selected_sizes = isset($_POST['sizes']) ? $_POST['sizes'] : array();
-    $selected_folders = isset($_POST['folders']) ? $_POST['folders'] : array();
-    $total_images = isset($_POST['total_images']) ? intval($_POST['total_images']) : 0;
-    $processed_images = isset($_POST['processed_images']) ? intval($_POST['processed_images']) : 0;
+		$selected_sizes = isset($_POST['sizes']) ? array_map('sanitize_text_field', $_POST['sizes']) : array();
+		$selected_folders = isset($_POST['folders']) ? array_map('sanitize_text_field', $_POST['folders']) : array();
 
-    $result = remove_existing_thumbnails($selected_sizes, $selected_folders);
+		if (empty($selected_sizes) || empty($selected_folders)) {
+			throw new Exception(__('Please select at least one size and one folder', 'thumbnail-remover'));
+		}
 
-    $processed_images += $result['count'];
-    $progress = ($total_images > 0) ? round(($processed_images / $total_images) * 100) : 100;
+		$result = remove_existing_thumbnails($selected_sizes, $selected_folders);
 
-    wp_send_json_success(
-      array(
-        'removed_count' => $result['count'],
-        'total_size' => size_format($result['size']),
-        'processed_images' => $processed_images,
-        'progress' => $progress,
-        'is_complete' => ($progress >= 100)
-      )
-    );
-  } catch (Exception $e) {
-    log_error("Error in remove_thumbnails_ajax: " . $e->getMessage());
-    wp_send_json_error($e->getMessage());
-  }
+		wp_send_json_success(
+			array(
+				'removed_count' => $result['count'],
+				'total_size' => size_format($result['size']),
+				'message' => sprintf(
+					__('Successfully removed %d thumbnails, freeing up %s of space.', 'thumbnail-remover'),
+					$result['count'],
+					size_format($result['size'])
+				)
+			)
+		);
+	} catch (Exception $e) {
+		log_error("Error in remove_thumbnails_ajax: " . $e->getMessage());
+		wp_send_json_error(array('message' => $e->getMessage()));
+	}
 }
 add_action('wp_ajax_remove_thumbnails', 'remove_thumbnails_ajax');
 
 // Helper function to check if filename matches any of the selected sizes
 function any_size_matches($filename, $selected_sizes)
 {
-  foreach ($selected_sizes as $size) {
-    if (strpos($filename, '-' . $size . '.') !== false) {
-      return true;
-    }
-  }
-  return false;
+	foreach ($selected_sizes as $size) {
+		if (strpos($filename, '-' . $size . '.') !== false) {
+			return true;
+		}
+	}
+	return false;
 }
 
 // Admin page
 function thumbnail_manager_page()
 {
-  $file_sizes = get_all_thumbnail_sizes_with_count();
-  $registered_sizes = get_all_image_sizes();
-  $folders = get_upload_folders_with_count();
+	$file_sizes = get_all_thumbnail_sizes_with_count();
+	$registered_sizes = get_all_image_sizes();
+	$folders = get_upload_folders_with_count();
 
-  if (isset($_POST['disable_sizes'])) {
-    $sizes_to_disable = isset($_POST['disable']) ? $_POST['disable'] : array();
-    update_option('disabled_image_sizes', $sizes_to_disable);
-    echo '<div class="updated"><p>' . esc_html__('Image sizes have been updated. The selected sizes will not be generated for future uploads.', 'thumbnail-remover') . '</p></div>';
-  }
+	if (isset($_POST['disable_sizes'])) {
+		$sizes_to_disable = isset($_POST['disable']) ? $_POST['disable'] : array();
+		update_option('disabled_image_sizes', $sizes_to_disable);
+		echo '<div class="updated"><p>' . esc_html__('Image sizes have been updated. The selected sizes will not be generated for future uploads.', 'thumbnail-remover') . '</p></div>';
+	}
 
-  $disabled_sizes = get_option('disabled_image_sizes', array());
-  ?>
-  <div class="wrap">
-    <h1><?php esc_html_e('Thumbnail Manager', 'thumbnail-remover'); ?></h1>
-    <div class="wrt-admin">
-      <div class="wrt-box">
-        <h2><?php esc_html_e('Manage Thumbnail Sizes', 'thumbnail-remover'); ?></h2>
-        <form method="post">
-          <h3><?php esc_html_e('Select Thumbnail Sizes to Disable:', 'thumbnail-remover'); ?></h3>
-          <ul class="wrt-list wrt-left">
-            <?php foreach ($registered_sizes as $size => $details): ?>
-              <li>
-                <label>
-                  <input type="checkbox" name="disable[]" value="<?php echo esc_attr($size); ?>" <?php checked(in_array($size, $disabled_sizes)); ?>>
-                  <?php echo esc_html($size . ' (' . $details['width'] . 'x' . $details['height'] . ')'); ?>
-                </label>
-              </li>
-            <?php endforeach; ?>
-          </ul>
+	$disabled_sizes = get_option('disabled_image_sizes', array());
+	?>
+	<div class="wrap">
+		<h1><?php esc_html_e('Thumbnail Manager', 'thumbnail-remover'); ?></h1>
+		<div class="wrt-admin">
+			<div class="wrt-box">
+				<h2><?php esc_html_e('Manage Thumbnail Sizes', 'thumbnail-remover'); ?></h2>
+				<form method="post">
+					<h3><?php esc_html_e('Select Thumbnail Sizes to Disable:', 'thumbnail-remover'); ?></h3>
+					<ul class="wrt-list wrt-left">
+						<?php foreach ($registered_sizes as $size => $details): ?>
+							<li>
+								<label>
+									<input type="checkbox" name="disable[]" value="<?php echo esc_attr($size); ?>" <?php checked(in_array($size, $disabled_sizes)); ?>>
+									<?php echo esc_html($size . ' (' . $details['width'] . 'x' . $details['height'] . ')'); ?>
+								</label>
+							</li>
+						<?php endforeach; ?>
+					</ul>
 
-          <p><strong><?php esc_html_e('Note:', 'thumbnail-remover'); ?></strong>
-            <?php esc_html_e('Disabling sizes here will prevent WordPress from generating these thumbnail sizes for future uploads. It will not affect existing thumbnails.', 'thumbnail-remover'); ?>
-          </p>
-          <input type="submit" name="disable_sizes" class="button button-primary"
-            value="<?php esc_attr_e('Save Changes', 'thumbnail-remover'); ?>">
-        </form>
-      </div>
-      <div class="wrt-box">
-        <h2><?php esc_html_e('Remove Existing Thumbnails', 'thumbnail-remover'); ?></h2>
-        <form id="remove-thumbnails-form" method="post">
-          <h3><?php esc_html_e('Select Thumbnail Sizes to Remove:', 'thumbnail-remover'); ?> <button class="button"
-              id="select-all-sizes" type="button"><?php esc_html_e('Select All', 'thumbnail-remover'); ?></button></h3>
-          <ul class="wrt-list wrt-list-4" id="list_sizes">
-            <?php foreach ($file_sizes as $size => $count):
-              if ($count > 0): ?>
-                <li><label>
-                    <input type="checkbox" name="sizes[]" value="<?php echo esc_attr($size); ?>">
-                    <?php echo esc_html($size . ' (' . $count . ' ' . _n('image', 'images', $count, 'thumbnail-remover') . ')'); ?>
-                  </label></li>
-              <?php endif;
-            endforeach; ?>
-          </ul>
+					<p><strong><?php esc_html_e('Note:', 'thumbnail-remover'); ?></strong>
+						<?php esc_html_e('Disabling sizes here will prevent WordPress from generating these thumbnail sizes for future uploads. It will not affect existing thumbnails.', 'thumbnail-remover'); ?>
+					</p>
+					<input type="submit" name="disable_sizes" class="button button-primary"
+						value="<?php esc_attr_e('Save Changes', 'thumbnail-remover'); ?>">
+				</form>
+			</div>
+			<div class="wrt-box">
+				<h2><?php esc_html_e('Remove Existing Thumbnails', 'thumbnail-remover'); ?></h2>
+				<form id="remove-thumbnails-form" method="post">
+					<?php wp_nonce_field('thumbnail-manager-nonce', 'thumbnail_manager_nonce'); ?>
+					<h3><?php esc_html_e('Select Thumbnail Sizes to Remove:', 'thumbnail-remover'); ?>
+						<button class="button" id="select-all-sizes"
+							type="button"><?php esc_html_e('Select All', 'thumbnail-remover'); ?></button>
+					</h3>
+					<ul class="wrt-list wrt-list-4" id="list_sizes">
+						<?php foreach ($file_sizes as $size => $count):
+							if ($count > 0): ?>
+								<li>
+									<label>
+										<input type="checkbox" name="sizes[]" value="<?php echo esc_attr($size); ?>">
+										<?php echo esc_html($size . ' (' . $count . ' ' . _n('image', 'images', $count, 'thumbnail-remover') . ')'); ?>
+									</label>
+								</li>
+							<?php endif;
+						endforeach; ?>
+					</ul>
 
-          <h3><?php esc_html_e('Select Folders to Process:', 'thumbnail-remover'); ?> <button class="button"
-              id="select-all-folders" type="button"><?php esc_html_e('Select All', 'thumbnail-remover'); ?></button>
-          </h3>
-          <ul class="wrt-list wrt-list-4" id="list_folders">
-            <?php foreach ($folders as $folder => $count):
-              if ($count > 0): ?>
-                <li>
-                  <label>
-                    <input type="checkbox" name="folders[]" value="<?php echo esc_attr($folder); ?>">
-                    <?php echo esc_html($folder . ' (' . $count . ' ' . _n('image', 'images', $count, 'thumbnail-remover') . ')'); ?>
-                  </label>
-                </li>
-              <?php endif;
-            endforeach; ?>
-          </ul>
+					<h3><?php esc_html_e('Select Folders to Process:', 'thumbnail-remover'); ?>
+						<button class="button" id="select-all-folders"
+							type="button"><?php esc_html_e('Select All', 'thumbnail-remover'); ?></button>
+					</h3>
+					<ul class="wrt-list wrt-list-4" id="list_folders">
+						<?php foreach ($folders as $folder => $count):
+							if ($count > 0): ?>
+								<li>
+									<label>
+										<input type="checkbox" name="folders[]" value="<?php echo esc_attr($folder); ?>">
+										<?php echo esc_html($folder . ' (' . $count . ' ' . _n('image', 'images', $count, 'thumbnail-remover') . ')'); ?>
+									</label>
+								</li>
+							<?php endif;
+						endforeach; ?>
+					</ul>
 
-          <p><strong><?php esc_html_e('Warning:', 'thumbnail-remover'); ?></strong>
-            <?php esc_html_e('This action cannot be undone. Please backup your files before proceeding.', 'thumbnail-remover'); ?>
-          </p>
-          <input type="submit" name="remove_thumbnails" class="button button-primary"
-            value="<?php esc_attr_e('Remove Selected Thumbnails', 'thumbnail-remover'); ?>">
-        </form>
+					<p><strong><?php esc_html_e('Warning:', 'thumbnail-remover'); ?></strong>
+						<?php esc_html_e('This action cannot be undone. Please backup your files before proceeding.', 'thumbnail-remover'); ?>
+					</p>
+					<input type="submit" name="remove_thumbnails" class="button button-primary"
+						value="<?php esc_attr_e('Remove Selected Thumbnails', 'thumbnail-remover'); ?>">
+				</form>
 
-        <div id="progress-bar" style="display: none; margin-top: 20px;background: #fff;">
-          <div id="progress" style="width: 0%; height: 20px; background-color: #0073aa;"></div>
-        </div>
-        <div id="progress-text" style="display: none; margin-top: 10px;"></div>
-      </div>
-      <div class="wrt-box">
-        <h2><?php esc_html_e('Support Us', 'thumbnail-remover'); ?></h2>
-        <p>
-          <?php esc_html_e('Thank you for using thumbnail-remover! This plugin is a labor of love, designed to help you streamline your WordPress experience by removing unwanted thumbnails. If you find it useful, please consider supporting its development.', 'thumbnail-remover'); ?>
-        </p>
-        <p>
-          <?php esc_html_e('Your support helps cover the costs of maintaining and improving the plugin, ensuring it remains free and accessible for everyone. Every little bit helps and is greatly appreciated!', 'thumbnail-remover'); ?>
-        </p>
-        <a href="https://www.buymeacoffee.com/mehdiraized" target="_blank"><img
-            src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee"
-            style="height: 60px !important;width: 217px !important;"></a>
-        <p><?php esc_html_e('Thank you for your generosity and support!', 'thumbnail-remover'); ?></p>
-      </div>
-    </div>
-    <?php
+				<div id="progress-bar" style="display: none; margin-top: 20px; background: #f1f1f1; border: 1px solid #ccc;">
+					<div id="progress" style="width: 0%; height: 20px; background-color: #0073aa; transition: width 0.5s;"></div>
+				</div>
+				<div id="progress-text" style="display: none; margin-top: 10px; font-weight: bold;"></div>
+				<div id="result-message" style="display: none; margin-top: 10px; padding: 10px; border-radius: 4px;"></div>
+			</div>
+			<div class="wrt-box">
+				<h2><?php esc_html_e('Support Us', 'thumbnail-remover'); ?></h2>
+				<p>
+					<?php esc_html_e('Thank you for using thumbnail-remover! This plugin is a labor of love, designed to help you streamline your WordPress experience by removing unwanted thumbnails. If you find it useful, please consider supporting its development.', 'thumbnail-remover'); ?>
+				</p>
+				<p>
+					<?php esc_html_e('Your support helps cover the costs of maintaining and improving the plugin, ensuring it remains free and accessible for everyone. Every little bit helps and is greatly appreciated!', 'thumbnail-remover'); ?>
+				</p>
+				<a href="https://www.buymeacoffee.com/mehdiraized" target="_blank"><img
+						src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee"
+						style="height: 60px !important;width: 217px !important;"></a>
+				<p><?php esc_html_e('Thank you for your generosity and support!', 'thumbnail-remover'); ?></p>
+			</div>
+		</div>
+		<?php
 }
 
 // Apply the thumbnail size settings
