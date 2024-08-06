@@ -3,7 +3,7 @@
 Plugin Name: Thumbnail Remover and Size Manager
 Plugin URI: https://wordpress.org/plugins/thumbnail-remover
 Description: Removes existing thumbnails, disables thumbnail generation, and manages thumbnail sizes
-Version: 1.0.4
+Version: 1.0.5
 Author: Mehdi Rezaei
 Author URI: https://mehd.ir
 License: GPLv2 or later
@@ -284,8 +284,22 @@ function remove_thumbnails_ajax()
 		$selected_sizes = isset($_POST['sizes']) ? array_map('sanitize_text_field', $_POST['sizes']) : array();
 		$selected_folders = isset($_POST['folders']) ? array_map('sanitize_text_field', $_POST['folders']) : array();
 
-		if (empty($selected_sizes) || empty($selected_folders)) {
-			throw new Exception(__('Please select at least one size and one folder', 'thumbnail-remover'));
+		if (empty($selected_sizes) && empty($selected_folders)) {
+			throw new Exception(__('Please select at least one size or one folder', 'thumbnail-remover'));
+		}
+
+		// If no sizes are selected, we'll remove all thumbnail sizes
+		if (empty($selected_sizes)) {
+			$selected_sizes = array();  // This will match all thumbnail sizes in remove_existing_thumbnails()
+		}
+
+		// If no folders are selected, we'll process all folders
+		if (empty($selected_folders)) {
+			$upload_dir = wp_upload_dir();
+			$base_dir = $upload_dir['basedir'];
+			$selected_folders = array_filter(scandir($base_dir), function ($item) use ($base_dir) {
+				return is_dir($base_dir . '/' . $item) && !in_array($item, array('.', '..'));
+			});
 		}
 
 		$result = remove_existing_thumbnails($selected_sizes, $selected_folders);

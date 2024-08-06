@@ -10,10 +10,6 @@ jQuery(document).ready(function ($) {
 	$("#remove-thumbnails-form").submit(function (e) {
 		e.preventDefault();
 
-		if (!confirm(thumbnailManager.confirm_message)) {
-			return;
-		}
-
 		var sizes = [];
 		var folders = [];
 
@@ -25,8 +21,24 @@ jQuery(document).ready(function ($) {
 			folders.push($(this).val());
 		});
 
-		if (sizes.length === 0 || folders.length === 0) {
-			alert("Please select at least one size and one folder.");
+		if (sizes.length === 0 && folders.length === 0) {
+			alert("Please select at least one size or one folder.");
+			return;
+		}
+
+		var confirmMessage = "";
+		if (sizes.length === 0) {
+			confirmMessage =
+				"Are you sure you want to remove ALL thumbnail sizes from the selected folders?";
+		} else if (folders.length === 0) {
+			confirmMessage =
+				"Are you sure you want to remove the selected sizes from ALL folders?";
+		} else {
+			confirmMessage =
+				"Are you sure you want to remove the selected thumbnail sizes from the selected folders?";
+		}
+
+		if (!confirm(confirmMessage)) {
 			return;
 		}
 
