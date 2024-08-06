@@ -69,3 +69,6 @@ msgstr "حمایت شما به پوشش هزینه‌های نگهداری و ب
 
 msgid "Thank you for your generosity and support!"
 msgstr "از سخاوت و حمایت شما متشکریم!"
+
+msgid "Successfully removed %d thumbnails, freeing up %s of space."
+msgstr "با موفقیت %d تصویر بندانگشتی حذف شد و %s فضا آزاد شد."
