@@ -3,7 +3,7 @@
 Plugin Name: Thumbnail Remover and Size Manager
 Plugin URI: https://wordpress.org/plugins/thumbnail-remover
 Description: Removes existing thumbnails, disables thumbnail generation, and manages thumbnail sizes
-Version: 1.0.6
+Version: 1.1.0
 Author: Mehdi Rezaei
 Author URI: https://mehd.ir
 License: GPLv2 or later
