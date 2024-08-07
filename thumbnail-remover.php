@@ -152,8 +152,17 @@ function get_upload_folders_with_count()
 						if (is_numeric($month) && strlen($month) == 2) {
 							$folder = $year . '/' . $month;
 							$folder_path = $base_dir . '/' . $folder;
-							$count = count(glob($folder_path . '/*.*'));
-							$folders[$folder] = $count;
+							$count = count(
+								array_filter(
+									glob($folder_path . '/*.*'),
+									function ($file) {
+										return is_thumbnail(new SplFileInfo($file));
+									}
+								)
+							);
+							if ($count > 0) {
+								$folders[$folder] = $count;
+							}
 						}
 					}
 				}
@@ -200,12 +209,9 @@ function remove_existing_thumbnails($selected_sizes, $selected_folders)
 					$filename = $file->getFilename();
 					if (empty($selected_sizes) || any_size_matches($filename, $selected_sizes)) {
 						$file_size = $file->getSize();
-						if (wp_delete_file($file->getRealPath())) {
-							$count++;
-							$total_size += $file_size;
-						} else {
-							log_error("Failed to delete file: " . $file->getRealPath());
-						}
+						wp_delete_file($file->getRealPath());
+						$count++;
+						$total_size += $file_size;
 					}
 				}
 			}
@@ -214,7 +220,7 @@ function remove_existing_thumbnails($selected_sizes, $selected_folders)
 		return array('count' => $count, 'size' => $total_size);
 	} catch (Exception $e) {
 		log_error("Error in remove_existing_thumbnails: " . $e->getMessage());
-		return array('count' => 0, 'size' => 0);
+		throw $e;
 	}
 }
 
@@ -377,44 +383,65 @@ function thumbnail_manager_page()
 				<h2><?php esc_html_e('Remove Existing Thumbnails', 'thumbnail-remover'); ?></h2>
 				<form id="remove-thumbnails-form" method="post">
 					<?php wp_nonce_field('thumbnail-manager-nonce', 'thumbnail_manager_nonce'); ?>
-					<h3><?php esc_html_e('Select Thumbnail Sizes to Remove:', 'thumbnail-remover'); ?>
-						<button class="button" id="select-all-sizes"
-							type="button"><?php esc_html_e('Select All', 'thumbnail-remover'); ?></button>
+					<h3>
+						<?php esc_html_e('Select Thumbnail Sizes to Remove:', 'thumbnail-remover'); ?>
+						<?php if (count($file_sizes) > 0): ?>
+							<button class="button" id="select-all-sizes"
+								type="button"><?php esc_html_e('Select All', 'thumbnail-remover'); ?></button>
+						<?php endif; ?>
 					</h3>
 					<ul class="wrt-list wrt-list-4" id="list_sizes">
-						<?php foreach ($file_sizes as $size => $count):
-							if ($count > 0): ?>
-								<li>
-									<label>
-										<input type="checkbox" name="sizes[]" value="<?php echo esc_attr($size); ?>">
-										<?php echo esc_html($size . ' (' . $count . ' ' . _n('image', 'images', $count, 'thumbnail-remover') . ')'); ?>
-									</label>
-								</li>
-							<?php endif;
-						endforeach; ?>
+						<?php if (count($file_sizes) > 0):
+							foreach ($file_sizes as $size => $count):
+								if ($count > 0): ?>
+									<li>
+										<label>
+											<input type="checkbox" name="sizes[]" value="<?php echo esc_attr($size); ?>">
+											<?php echo esc_html($size . ' (' . $count . ' ' . _n('image', 'images', $count, 'thumbnail-remover') . ')'); ?>
+										</label>
+									</li>
+								<?php endif;
+							endforeach;
+						else:
+							?>
+							<li>
+								<?php esc_html_e('No thumbnail sizes found.', 'thumbnail-remover'); ?>
+							</li>
+						<?php endif; ?>
 					</ul>
 
 					<h3><?php esc_html_e('Select Folders to Process:', 'thumbnail-remover'); ?>
-						<button class="button" id="select-all-folders"
-							type="button"><?php esc_html_e('Select All', 'thumbnail-remover'); ?></button>
+						<?php if (count($folders) > 0): ?>
+							<button class="button" id="select-all-folders"
+								type="button"><?php esc_html_e('Select All', 'thumbnail-remover'); ?></button>
+						<?php endif; ?>
 					</h3>
 					<ul class="wrt-list wrt-list-4" id="list_folders">
-						<?php foreach ($folders as $folder => $count):
-							if ($count > 0): ?>
-								<li>
-									<label>
-										<input type="checkbox" name="folders[]" value="<?php echo esc_attr($folder); ?>">
-										<?php echo esc_html($folder . ' (' . $count . ' ' . _n('image', 'images', $count, 'thumbnail-remover') . ')'); ?>
-									</label>
-								</li>
-							<?php endif;
-						endforeach; ?>
+						<?php if (count($file_sizes) > 0):
+							foreach ($folders as $folder => $count):
+								if ($count > 0): ?>
+									<li>
+										<label>
+											<input type="checkbox" name="folders[]" value="<?php echo esc_attr($folder); ?>">
+											<?php echo esc_html($folder . ' (' . $count . ' ' . _n('image', 'images', $count, 'thumbnail-remover') . ')'); ?>
+										</label>
+									</li>
+								<?php endif;
+							endforeach;
+						else:
+							?>
+							<li>
+								<?php esc_html_e('No folders found.', 'thumbnail-remover'); ?>
+							</li>
+						<?php endif; ?>
 					</ul>
 
 					<p><strong><?php esc_html_e('Warning:', 'thumbnail-remover'); ?></strong>
 						<?php esc_html_e('This action cannot be undone. Please backup your files before proceeding.', 'thumbnail-remover'); ?>
 					</p>
-					<input type="submit" name="remove_thumbnails" class="button button-primary"
+					<input type="submit" name="remove_thumbnails" class="button button-primary" <?php if (count($file_sizes) === 0 || count($folders) === 0) {
+						echo 'disabled=""';
+					} ?>
 						value="<?php esc_attr_e('Remove Selected Thumbnails', 'thumbnail-remover'); ?>">
 				</form>
 

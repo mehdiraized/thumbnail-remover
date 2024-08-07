@@ -72,3 +72,9 @@ msgstr "از سخاوت و حمایت شما متشکریم!"
 
 msgid "Successfully removed %d thumbnails, freeing up %s of space."
 msgstr "با موفقیت %d تصویر بندانگشتی حذف شد و %s فضا آزاد شد."
+
+msgid "No folders found."
+msgstr "فولدری که دارای تصویر بندانگشتی باشد یافت نشد."
+
+msgid "No thumbnail sizes found."
+msgstr "سایزی که دارای بندانگشتی باشد یافت نشد."
