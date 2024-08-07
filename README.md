@@ -52,6 +52,19 @@ Yes, we regularly update the plugin to ensure compatibility with the latest Word
 
 ## Changelog
 
+### 1.1.0 Stable version
+
+- 4 bug fix
+- 2 improvement ui
+- 3 improvement performance
+- 3 fix translate
+
+### 1.0.3
+
+- add ajax to remove thumbnails
+- add ui improvement
+- add buy me a coffee button
+
 ### 1.0.1
 
 - Initial release.
