@@ -2,9 +2,9 @@ name: WordPress Plugin CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
@@ -12,51 +12,53 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php: ['7.4', '8.0', '8.1']
-        wordpress: ['latest', '5.9', '5.8']
+        php: ["7.4", "8.0", "8.1"]
+        wordpress: ["latest", "6.1", "6.0"]
+      fail-fast: false
+
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: wordpress_test
+        ports:
+          - 3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: ${{ matrix.php }}
-        extensions: mbstring, intl
-        tools: composer:v2
-        coverage: xdebug
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, mysqli
+          tools: composer:v2, wp-cli
+          coverage: xdebug
 
-    - name: Install dependencies
-      run: composer install --prefer-dist --no-progress
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
 
-    - name: Check PHP syntax
-      run: find . -name "*.php" -print0 | xargs -0 -n1 -P4 php -l
+      - name: Check PHP syntax
+        run: find . -name "*.php" -print0 | xargs -0 -n1 -P4 php -l
 
-    - name: WordPress Coding Standards
-      run: |
-        composer global require wp-coding-standards/wpcs
-        phpcs --standard=WordPress --extensions=php .
+      - name: WordPress Coding Standards
+        run: |
+          composer global require wp-coding-standards/wpcs
+          ~/.composer/vendor/bin/phpcs --standard=WordPress --extensions=php .
 
-    - name: Setup WordPress
-      run: |
-        mkdir -p /tmp/wordpress
-        wget -q -O - https://wordpress.org/wordpress-${{ matrix.wordpress }}.tar.gz | tar xz -C /tmp/wordpress --strip-components=1
-        cd /tmp/wordpress
-        cp wp-config-sample.php wp-config.php
-        sed -i 's/database_name_here/wordpress_test/' wp-config.php
-        sed -i 's/username_here/root/' wp-config.php
-        sed -i 's/password_here/root/' wp-config.php
-        wp core install --url=http://localhost --title=Test --admin_user=admin --admin_password=password --admin_email=admin@example.com --skip-email --allow-root
+      - name: Setup WordPress
+        env:
+          WP_VERSION: ${{ matrix.wordpress }}
+        run: |
+          bash bin/install-wp-tests.sh wordpress_test root rootpassword 127.0.0.1:${{ job.services.mysql.ports['3306'] }} $WP_VERSION
 
-    - name: Run PHPUnit tests
-      run: |
-        cd /tmp/wordpress/wp-content/plugins
-        ln -s $GITHUB_WORKSPACE .
-        cd $GITHUB_WORKSPACE
-        phpunit
+      - name: Run PHPUnit tests
+        run: composer run-script test
 
 env:
   DB_NAME: wordpress_test
   DB_USER: root
-  DB_PASSWORD: root
-  DB_HOST: 127.0.0.1
+  DB_PASSWORD: rootpassword
+  DB_HOST: 127.0.0.1:${{ job.services.mysql.ports['3306'] }}
