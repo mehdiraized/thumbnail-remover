@@ -1,0 +1,41 @@
+{
+	"name": "thumbnail-remover/thumbnail-remover",
+	"description": "Removes existing thumbnails, disables thumbnail generation, and manages thumbnail sizes",
+	"license": "GPL-2.0-or-later",
+	"type": "wordpress-plugin",
+	"keywords": [
+		"wordpress",
+		"thumbnail",
+		"manager",
+		"storage"
+	],
+	"authors": [
+		{
+			"name": "Mehdi Rezaei",
+			"email": "mehdiraized@gmail.com",
+			"homepage": "https://mehd.ir"
+		}
+	],
+	"homepage": "https://github.com/mehdiraized/thumbnail-remover",
+	"support": {
+		"issues": "https://github.com/mehdiraized/thumbnail-remover/issues",
+		"forum": "https://wordpress.org/support/plugin/thumbnail-remover",
+		"wiki": "https://github.com/mehdiraized/thumbnail-remover",
+		"source": "https://github.com/mehdiraized/thumbnail-remover"
+	},
+	"require": {
+		"php": ">=5.6",
+		"composer/installers": "^1.0"
+	},
+	"require-dev": {},
+	"suggest": {},
+	"minimum-stability": "dev",
+	"prefer-stable": true,
+	"scripts": {},
+	"scripts-descriptions": {},
+	"config": {
+		"allow-plugins": {
+			"composer/installers": true
+		}
+	}
+}
