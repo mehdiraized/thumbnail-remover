@@ -1,64 +1,19 @@
-name: WordPress Plugin CI
+name: WordPress Plugin Build Test
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - "releases/*"
   pull_request:
     branches: [main]
 
 jobs:
   test:
-    name: WordPress ${{ matrix.wordpress }} on PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        php: ["7.4", "8.0", "8.1"]
-        wordpress: ["latest", "6.1", "6.0"]
-      fail-fast: false
-
-    services:
-      mysql:
-        image: mysql:5.7
-        env:
-          MYSQL_ROOT_PASSWORD: rootpassword
-          MYSQL_DATABASE: wordpress_test
-        ports:
-          - 3306:3306
-        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: mbstring, intl, mysqli
-          tools: composer:v2, wp-cli
-          coverage: xdebug
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-progress
-
-      - name: Check PHP syntax
-        run: find . -name "*.php" -print0 | xargs -0 -n1 -P4 php -l
-
-      - name: WordPress Coding Standards
-        run: |
-          composer global require wp-coding-standards/wpcs
-          ~/.composer/vendor/bin/phpcs --standard=WordPress --extensions=php .
-
-      - name: Setup WordPress
-        env:
-          WP_VERSION: ${{ matrix.wordpress }}
-        run: |
-          bash bin/install-wp-tests.sh wordpress_test root rootpassword 127.0.0.1 $WP_VERSION
-
-      - name: Run PHPUnit tests
-        run: composer run-script test
-
-env:
-  DB_NAME: wordpress_test
-  DB_USER: root
-  DB_PASSWORD: rootpassword
-  DB_HOST: 127.0.0.1
+      - name: Run plugin check
+        uses: wordpress/plugin-check-action@v1
