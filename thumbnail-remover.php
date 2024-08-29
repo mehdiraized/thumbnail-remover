@@ -3,6 +3,7 @@
 Plugin Name: Thumbnail Remover and Size Manager
 Plugin URI: https://wordpress.org/plugins/thumbnail-remover
 Description: Removes existing thumbnails, disables thumbnail generation, and manages thumbnail sizes
+Short Description: Manage and remove WordPress thumbnails easily.
 Version: 1.1.0
 Author: Mehdi Rezaei
 Author URI: https://mehd.ir
@@ -287,8 +288,8 @@ function remove_thumbnails_ajax()
 			throw new Exception(__('Unauthorized access', 'thumbnail-remover'));
 		}
 
-		$selected_sizes = isset($_POST['sizes']) ? array_map('sanitize_text_field', $_POST['sizes']) : array();
-		$selected_folders = isset($_POST['folders']) ? array_map('sanitize_text_field', $_POST['folders']) : array();
+		$selected_sizes = isset($_POST['sizes']) ? sanitize_text_field(wp_unslash($_POST['sizes'])) : array();
+		$selected_folders = isset($_POST['folders']) ? sanitize_text_field(wp_unslash($_POST['folders'])) : array();
 
 		if (empty($selected_sizes) && empty($selected_folders)) {
 			throw new Exception(__('Please select at least one size or one folder', 'thumbnail-remover'));
@@ -310,15 +311,17 @@ function remove_thumbnails_ajax()
 
 		$result = remove_existing_thumbnails($selected_sizes, $selected_folders);
 
+		$message = sprintf(
+			__('Successfully removed %1$d thumbnails, freeing up %2$s of space.', 'thumbnail-remover'),
+			$result['count'],
+			size_format($result['size'])
+		);
+
 		wp_send_json_success(
 			array(
 				'removed_count' => $result['count'],
 				'total_size' => size_format($result['size']),
-				'message' => sprintf(
-					__('Successfully removed %d thumbnails, freeing up %s of space.', 'thumbnail-remover'),
-					$result['count'],
-					size_format($result['size'])
-				)
+				'message' => $message
 			)
 		);
 	} catch (Exception $e) {
@@ -342,16 +345,18 @@ function any_size_matches($filename, $selected_sizes)
 // Admin page
 function thumbnail_manager_page()
 {
+	// Verify nonce
+	if (isset($_POST['thumbnail_manager_nonce']) && wp_verify_nonce($_POST['thumbnail_manager_nonce'], 'thumbnail_manager_action')) {
+		if (isset($_POST['disable_sizes'])) {
+			$sizes_to_disable = isset($_POST['disable']) ? sanitize_text_field(wp_unslash($_POST['disable'])) : array();
+			update_option('disabled_image_sizes', $sizes_to_disable);
+			echo '<div class="updated"><p>' . esc_html__('Image sizes have been updated. The selected sizes will not be generated for future uploads.', 'thumbnail-remover') . '</p></div>';
+		}
+	}
+
 	$file_sizes = get_all_thumbnail_sizes_with_count();
 	$registered_sizes = get_all_image_sizes();
 	$folders = get_upload_folders_with_count();
-
-	if (isset($_POST['disable_sizes'])) {
-		$sizes_to_disable = isset($_POST['disable']) ? $_POST['disable'] : array();
-		update_option('disabled_image_sizes', $sizes_to_disable);
-		echo '<div class="updated"><p>' . esc_html__('Image sizes have been updated. The selected sizes will not be generated for future uploads.', 'thumbnail-remover') . '</p></div>';
-	}
-
 	$disabled_sizes = get_option('disabled_image_sizes', array());
 	?>
 	<div class="wrap">
@@ -360,6 +365,7 @@ function thumbnail_manager_page()
 			<div class="wrt-box">
 				<h2><?php esc_html_e('Manage Thumbnail Sizes', 'thumbnail-remover'); ?></h2>
 				<form method="post">
+					<?php wp_nonce_field('thumbnail_manager_action', 'thumbnail_manager_nonce'); ?>
 					<h3><?php esc_html_e('Select Thumbnail Sizes to Disable:', 'thumbnail-remover'); ?></h3>
 					<ul class="wrt-list wrt-left">
 						<?php foreach ($registered_sizes as $size => $details): ?>
