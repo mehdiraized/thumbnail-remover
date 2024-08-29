@@ -52,7 +52,13 @@ Yes, we regularly update the plugin to ensure compatibility with the latest Word
 
 ## Changelog
 
-### 1.1.0 Stable version
+### 1.1.1 Stable version
+
+- 4 bug fix
+- improvement assets
+- fix responsive
+
+### 1.1.0
 
 - 4 bug fix
 - 2 improvement ui

@@ -469,8 +469,8 @@ function thumbnail_manager_page()
 				<p>
 					<?php esc_html_e('Your support helps cover the costs of maintaining and improving the plugin, ensuring it remains free and accessible for everyone. Every little bit helps and is greatly appreciated!', 'thumbnail-remover'); ?>
 				</p>
-				<a href="https://www.buymeacoffee.com/mehdiraized" target="_blank"><img
-						src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee"
+				<a href="https://www.buymeacoffee.com/mehdiraized" target="_blank">
+					<img src="<?php echo plugin_dir_url(__FILE__) . 'assets/img/bmc-button.png' ?>" alt="Buy Me A Coffee"
 						style="height: 60px !important;width: 217px !important;"></a>
 				<p><?php esc_html_e('Thank you for your generosity and support!', 'thumbnail-remover'); ?></p>
 			</div>

@@ -28,7 +28,24 @@
 
 .wrt-list {
 	list-style: none;
-	columns: 3;
+	columns: 4;
+}
+
+@media (min-width: 0) and (max-width: 36em) {
+	.wrt-list {
+		columns: 1;
+	}
+}
+
+@media (min-width: 36em) and (max-width: 48em) {
+	.wrt-list {
+		columns: 2;
+	}
+}
+@media (min-width: 48em) and (max-width: 62em) {
+	.wrt-list {
+		columns: 3;
+	}
 }
 
 .wrt-left {
