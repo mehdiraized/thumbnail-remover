@@ -288,8 +288,8 @@ function remove_thumbnails_ajax()
 			throw new Exception(__('Unauthorized access', 'thumbnail-remover'));
 		}
 
-		$selected_sizes = isset($_POST['sizes']) ? sanitize_text_field(wp_unslash($_POST['sizes'])) : array();
-		$selected_folders = isset($_POST['folders']) ? sanitize_text_field(wp_unslash($_POST['folders'])) : array();
+		$selected_sizes = isset($_POST['sizes']) ? array_map('sanitize_text_field', wp_unslash($_POST['sizes'])) : array();
+		$selected_folders = isset($_POST['folders']) ? array_map('sanitize_text_field', wp_unslash($_POST['folders'])) : array();
 
 		if (empty($selected_sizes) && empty($selected_folders)) {
 			throw new Exception(__('Please select at least one size or one folder', 'thumbnail-remover'));
@@ -311,6 +311,7 @@ function remove_thumbnails_ajax()
 
 		$result = remove_existing_thumbnails($selected_sizes, $selected_folders);
 
+		/* translators: %1$d: number of thumbnails removed, %2$s: total size freed */
 		$message = sprintf(
 			__('Successfully removed %1$d thumbnails, freeing up %2$s of space.', 'thumbnail-remover'),
 			$result['count'],
@@ -346,11 +347,14 @@ function any_size_matches($filename, $selected_sizes)
 function thumbnail_manager_page()
 {
 	// Verify nonce
-	if (isset($_POST['thumbnail_manager_nonce']) && wp_verify_nonce($_POST['thumbnail_manager_nonce'], 'thumbnail_manager_action')) {
-		if (isset($_POST['disable_sizes'])) {
-			$sizes_to_disable = isset($_POST['disable']) ? sanitize_text_field(wp_unslash($_POST['disable'])) : array();
-			update_option('disabled_image_sizes', $sizes_to_disable);
-			echo '<div class="updated"><p>' . esc_html__('Image sizes have been updated. The selected sizes will not be generated for future uploads.', 'thumbnail-remover') . '</p></div>';
+	if (isset($_POST['thumbnail_manager_nonce'])) {
+		$nonce = array_map('sanitize_text_field', wp_unslash($_POST['thumbnail_manager_nonce']));
+		if (wp_verify_nonce($nonce, 'thumbnail_manager_action')) {
+			if (isset($_POST['disable_sizes'])) {
+				$sizes_to_disable = isset($_POST['disable']) ? array_map('sanitize_text_field', wp_unslash($_POST['disable'])) : array();
+				update_option('disabled_image_sizes', $sizes_to_disable);
+				echo '<div class="updated"><p>' . esc_html__('Image sizes have been updated. The selected sizes will not be generated for future uploads.', 'thumbnail-remover') . '</p></div>';
+			}
 		}
 	}
 
