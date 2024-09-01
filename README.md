@@ -4,9 +4,13 @@
 **Tags:** thumbnails, media management, image optimization, WordPress plugin, thumbnail remover  
 **Requires at least:** 5.0  
 **Tested up to:** 6.6.1  
-**Stable tag:** 1.1.1  
+**Stable tag:** 1.1.2  
 **License:** GPLv2 or later  
 **License URI:** https://www.gnu.org/licenses/gpl-2.0.html
+
+## Short Description
+
+Manage and remove WordPress thumbnails easily.
 
 ## Description
 
@@ -52,7 +56,11 @@ Yes, we regularly update the plugin to ensure compatibility with the latest Word
 
 ## Changelog
 
-### 1.1.1 Stable version
+### 1.1.2 Stable version
+
+- fix wordpress publish plugin issues
+
+### 1.1.1
 
 - 4 bug fix
 - improvement assets
