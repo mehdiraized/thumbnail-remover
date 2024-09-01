@@ -12,8 +12,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Get latest code
+        uses: actions/checkout@v4
 
       - name: Run plugin check
         uses: WordPress/plugin-check-action@v1.0.5
