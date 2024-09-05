@@ -1,10 +1,10 @@
 <?php
 /*
 Plugin Name: Thumbnail Remover and Size Manager
-Plugin URI: https://wordpress.org/plugins/thumbnail-remover
+Plugin URI: https://github.com/mehdiraized/thumbnail-remover/
 Description: Removes existing thumbnails, disables thumbnail generation, and manages thumbnail sizes
 Short Description: Manage and remove WordPress thumbnails easily.
-Version: 1.1.2
+Version: 1.1.3
 Author: Mehdi Rezaei
 Author URI: https://mehd.ir
 License: GPLv2 or later
@@ -40,7 +40,7 @@ If you find this plugin useful, please consider supporting its development by [b
 if (!defined('ABSPATH'))
 	exit; // Exit if accessed directly
 
-function tr_enqueue_styles($hook)
+function trpl_enqueue_styles($hook)
 {
 	if ('tools_page_thumbnail-manager' !== $hook) {
 		return;
@@ -52,23 +52,23 @@ function tr_enqueue_styles($hook)
 		filemtime(plugin_dir_path(__FILE__) . 'assets/css/style.css')
 	);
 }
-add_action('admin_enqueue_scripts', 'tr_enqueue_styles');
+add_action('admin_enqueue_scripts', 'trpl_enqueue_styles');
 
 // Load plugin text domain for translations
-function tr_load_textdomain()
+function trpl_load_textdomain()
 {
 	load_plugin_textdomain('thumbnail-remover', false, dirname(plugin_basename(__FILE__)) . '/languages');
 }
-add_action('plugins_loaded', 'tr_load_textdomain');
+add_action('plugins_loaded', 'trpl_load_textdomain');
 
 // Add error logging function
-function tr_log_error($message)
-{
-	error_log("Thumbnail Remover Error: " . $message);
-}
+// function trpl_log_error($message)
+// {
+// 	error_log("Thumbnail Remover Error: " . $message);
+// }
 
 // Get all registered image sizes
-function tr_get_all_image_sizes()
+function trpl_get_all_image_sizes()
 {
 	global $_wp_additional_image_sizes;
 	$sizes = array();
@@ -91,7 +91,7 @@ function tr_get_all_image_sizes()
 }
 
 // Function to get all thumbnail sizes from files with count
-function tr_get_all_thumbnail_sizes_with_count()
+function trpl_get_all_thumbnail_sizes_with_count()
 {
 	try {
 		$upload_dir = wp_upload_dir();
@@ -109,7 +109,7 @@ function tr_get_all_thumbnail_sizes_with_count()
 		$sizes = array();
 
 		foreach ($files as $file) {
-			if (!$file->isDir() && tr_is_thumbnail($file)) {
+			if (!$file->isDir() && trpl_is_thumbnail($file)) {
 				$filename = $file->getFilename();
 				if (preg_match('/-(\d+)x(\d+)\.(jpg|jpeg|png|gif)$/', $filename, $matches)) {
 					$size = $matches[1] . 'x' . $matches[2];
@@ -124,13 +124,13 @@ function tr_get_all_thumbnail_sizes_with_count()
 		ksort($sizes);
 		return $sizes;
 	} catch (Exception $e) {
-		tr_log_error("Error in get_all_thumbnail_sizes_with_count: " . $e->getMessage());
+		// trpl_log_error("Error in get_all_thumbnail_sizes_with_count: " . $e->getMessage());
 		return array();
 	}
 }
 
 // Function to get all year/month folders with image count
-function tr_get_upload_folders_with_count()
+function trpl_get_upload_folders_with_count()
 {
 	try {
 		$upload_dir = wp_upload_dir();
@@ -156,7 +156,7 @@ function tr_get_upload_folders_with_count()
 								array_filter(
 									glob($folder_path . '/*.*'),
 									function ($file) {
-										return tr_is_thumbnail(new SplFileInfo($file));
+										return trpl_is_thumbnail(new SplFileInfo($file));
 									}
 								)
 							);
@@ -172,19 +172,19 @@ function tr_get_upload_folders_with_count()
 		krsort($folders);
 		return $folders;
 	} catch (Exception $e) {
-		tr_log_error("Error in get_upload_folders_with_count: " . $e->getMessage());
+		// trpl_log_error("Error in get_upload_folders_with_count: " . $e->getMessage());
 		return array();
 	}
 }
 
 // Function to check if a file is a WordPress-generated thumbnail
-function tr_is_thumbnail($file)
+function trpl_is_thumbnail($file)
 {
 	return preg_match('/-\d+x\d+\.(jpg|jpeg|png|gif)$/', $file->getFilename());
 }
 
 // Remove existing thumbnails
-function tr_remove_existing_thumbnails($selected_sizes, $selected_folders)
+function trpl_remove_existing_thumbnails($selected_sizes, $selected_folders)
 {
 	try {
 		$upload_dir = wp_upload_dir();
@@ -205,9 +205,9 @@ function tr_remove_existing_thumbnails($selected_sizes, $selected_folders)
 			);
 
 			foreach ($files as $file) {
-				if (!$file->isDir() && tr_is_thumbnail($file)) {
+				if (!$file->isDir() && trpl_is_thumbnail($file)) {
 					$filename = $file->getFilename();
-					if (empty($selected_sizes) || tr_any_size_matches($filename, $selected_sizes)) {
+					if (empty($selected_sizes) || trpl_any_size_matches($filename, $selected_sizes)) {
 						$file_size = $file->getSize();
 						wp_delete_file($file->getRealPath());
 						$count++;
@@ -219,13 +219,13 @@ function tr_remove_existing_thumbnails($selected_sizes, $selected_folders)
 
 		return array('count' => $count, 'size' => $total_size);
 	} catch (Exception $e) {
-		tr_log_error("Error in remove_existing_thumbnails: " . $e->getMessage());
+		// trpl_log_error("Error in remove_existing_thumbnails: " . $e->getMessage());
 		throw $e;
 	}
 }
 
 // Disable specific thumbnail sizes
-function tr_disable_specific_image_sizes($sizes_to_disable)
+function trpl_disable_specific_image_sizes($sizes_to_disable)
 {
 	if (!empty($sizes_to_disable)) {
 		add_filter('intermediate_image_sizes_advanced', function ($sizes) use ($sizes_to_disable) {
@@ -238,20 +238,20 @@ function tr_disable_specific_image_sizes($sizes_to_disable)
 }
 
 // Add admin menu
-function tr_admin_menu()
+function trpl_admin_menu()
 {
 	add_management_page(
 		__('Thumbnail Manager', 'thumbnail-remover'),
 		__('Thumbnail Manager', 'thumbnail-remover'),
 		'manage_options',
 		'thumbnail-manager',
-		'tr_admin_page'
+		'trpl_admin_page'
 	);
 }
-add_action('admin_menu', 'tr_admin_menu');
+add_action('admin_menu', 'trpl_admin_menu');
 
 // Enqueue necessary scripts
-function tr_enqueue_scripts($hook)
+function trpl_enqueue_scripts($hook)
 {
 	if ('tools_page_thumbnail-manager' !== $hook) {
 		return;
@@ -275,10 +275,10 @@ function tr_enqueue_scripts($hook)
 		)
 	);
 }
-add_action('admin_enqueue_scripts', 'tr_enqueue_scripts');
+add_action('admin_enqueue_scripts', 'trpl_enqueue_scripts');
 
 // AJAX handler for removing thumbnails
-function tr_remove_thumbnails_ajax()
+function trpl_remove_thumbnails_ajax()
 {
 	try {
 		check_ajax_referer('thumbnail-manager-nonce', 'nonce');
@@ -308,7 +308,7 @@ function tr_remove_thumbnails_ajax()
 			});
 		}
 
-		$result = tr_remove_existing_thumbnails($selected_sizes, $selected_folders);
+		$result = trpl_remove_existing_thumbnails($selected_sizes, $selected_folders);
 
 		$message = sprintf(
 			/* translators: %1$d: number of thumbnails removed, %2$s: total size freed */
@@ -325,14 +325,14 @@ function tr_remove_thumbnails_ajax()
 			)
 		);
 	} catch (Exception $e) {
-		tr_log_error("Error in remove_thumbnails_ajax: " . $e->getMessage());
+		// trpl_log_error("Error in remove_thumbnails_ajax: " . $e->getMessage());
 		wp_send_json_error(array('message' => $e->getMessage()));
 	}
 }
-add_action('wp_ajax_remove_thumbnails', 'tr_remove_thumbnails_ajax');
+add_action('wp_ajax_remove_thumbnails', 'trpl_remove_thumbnails_ajax');
 
 // Helper function to check if filename matches any of the selected sizes
-function tr_any_size_matches($filename, $selected_sizes)
+function trpl_any_size_matches($filename, $selected_sizes)
 {
 	foreach ($selected_sizes as $size) {
 		if (strpos($filename, '-' . $size . '.') !== false) {
@@ -343,7 +343,7 @@ function tr_any_size_matches($filename, $selected_sizes)
 }
 
 // Admin page
-function tr_admin_page()
+function trpl_admin_page()
 {
 	// Verify nonce
 	if (isset($_POST['thumbnail_manager_nonce'])) {
@@ -351,16 +351,16 @@ function tr_admin_page()
 		if (wp_verify_nonce($nonce, 'thumbnail_manager_action')) {
 			if (isset($_POST['disable_sizes'])) {
 				$sizes_to_disable = isset($_POST['disable']) ? array_map('sanitize_text_field', wp_unslash($_POST['disable'])) : array();
-				update_option('disabled_image_sizes', $sizes_to_disable);
+				update_option('trpl_disabled_image_sizes', $sizes_to_disable);
 				echo '<div class="updated"><p>' . esc_html__('Image sizes have been updated. The selected sizes will not be generated for future uploads.', 'thumbnail-remover') . '</p></div>';
 			}
 		}
 	}
 
-	$file_sizes = tr_get_all_thumbnail_sizes_with_count();
-	$registered_sizes = tr_get_all_image_sizes();
-	$folders = tr_get_upload_folders_with_count();
-	$disabled_sizes = get_option('disabled_image_sizes', array());
+	$file_sizes = trpl_get_all_thumbnail_sizes_with_count();
+	$registered_sizes = trpl_get_all_image_sizes();
+	$folders = trpl_get_upload_folders_with_count();
+	$disabled_sizes = get_option('trpl_disabled_image_sizes', array());
 	?>
 	<div class="wrap">
 		<h1><?php esc_html_e('Thumbnail Manager', 'thumbnail-remover'); ?></h1>
@@ -479,5 +479,5 @@ function tr_admin_page()
 }
 
 // Apply the thumbnail size settings
-$disabled_sizes = get_option('disabled_image_sizes', array());
-tr_disable_specific_image_sizes($disabled_sizes);
+$trpl_disabled_sizes = get_option('trpl_disabled_image_sizes', array());
+trpl_disable_specific_image_sizes($trpl_disabled_sizes);
