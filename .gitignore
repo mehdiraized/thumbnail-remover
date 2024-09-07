@@ -1,0 +1,9 @@
+# Packages and Dependencies
+/node_mudules
+/vendor
+
+# SVN Files
+/svn
+
+# Plugin Zip File
+thumbnail-remover.zip
