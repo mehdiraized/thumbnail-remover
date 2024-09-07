@@ -5,13 +5,9 @@
 **Requires at least:** 5.0  
 **Tested up to:** 6.6.1  
 **Stable tag:** 1.1.3  
-**Requires PHP:** 8.0  
+**Requires PHP:** 7.0  
 **License:** GPLv2 or later  
 **License URI:** https://www.gnu.org/licenses/gpl-2.0.html
-
-## Short Description
-
-Manage and remove WordPress thumbnails easily.
 
 ## Description
 
@@ -49,11 +45,6 @@ Yes, you can manage and customize thumbnail sizes from the plugin settings page.
 ### Is this plugin compatible with the latest version of WordPress?
 
 Yes, we regularly update the plugin to ensure compatibility with the latest WordPress version.
-
-## Screenshots
-
-1. **Settings Page**: Screenshot of the plugin settings page where you can remove thumbnails and manage sizes.
-2. **Thumbnail Management**: Screenshot of the thumbnail management interface.
 
 ## Changelog
 
