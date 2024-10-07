@@ -4,10 +4,11 @@
 **Tags:** thumbnails, media management, image optimization, WordPress plugin, thumbnail remover  
 **Requires at least:** 5.0  
 **Tested up to:** 6.6.1  
-**Stable tag:** 1.1.3  
+**Stable tag:** 1.1.4  
 **Requires PHP:** 7.0  
 **License:** GPLv2 or later  
-**License URI:** https://www.gnu.org/licenses/gpl-2.0.html  
+**License URI:** https://www.gnu.org/licenses/gpl-2.0.html
+
 Manage and remove WordPress thumbnails easily.
 
 ## Description
@@ -19,6 +20,7 @@ WP Thumbnail Remover and Size Manager is a powerful tool designed to help WordPr
 - **Remove Existing Thumbnails:** Clean up your media library by deleting all existing thumbnail images.
 - **Disable Thumbnail Generation:** Prevent WordPress from generating new thumbnails for uploaded images.
 - **Manage Thumbnail Sizes:** Customize and manage the sizes of thumbnails to suit your needs.
+- **Backup Media Files:** Create backups of your media files, either for all uploads or specific year/month folders.
 - **Lightweight and Easy to Use:** Designed for simplicity and efficiency without compromising performance.
 - **Compatible with the Latest WordPress Version:** Regularly updated to ensure compatibility with the latest WordPress release.
 
@@ -32,6 +34,7 @@ WP Thumbnail Remover and Size Manager is a powerful tool designed to help WordPr
 
 - After activating the plugin, go to the settings page to remove existing thumbnails and disable future thumbnail generation.
 - Customize the thumbnail sizes as needed to better manage your media files.
+- Use the new backup feature to create backups of your media files.
 
 ## Frequently Asked Questions
 
@@ -43,38 +46,27 @@ After activating the plugin, go to the plugin settings page and click on the 'Re
 
 Yes, you can manage and customize thumbnail sizes from the plugin settings page.
 
+### How do I create a backup of my media files?
+
+Go to the plugin settings page and look for the 'Backup Images' section. You can choose to backup all media files or select a specific year and month to backup. Click the 'Create Backup' button to start the process.
+
 ### Is this plugin compatible with the latest version of WordPress?
 
 Yes, we regularly update the plugin to ensure compatibility with the latest WordPress version.
 
 ## Changelog
 
-### 1.1.2 Stable version
+### 1.1.4
+
+- Added new feature: Media file backup functionality
+- Improved user interface for backup options
+- Bug fixes and performance improvements
+
+### 1.1.3 Stable version
 
 - fix wordpress publish plugin issues
 
-### 1.1.1
-
-- 4 bug fix
-- improvement assets
-- fix responsive
-
-### 1.1.0
-
-- 4 bug fix
-- 2 improvement ui
-- 3 improvement performance
-- 3 fix translate
-
-### 1.0.3
-
-- add ajax to remove thumbnails
-- add ui improvement
-- add buy me a coffee button
-
-### 1.0.1
-
-- Initial release.
+[... rest of the changelog ...]
 
 ## Support and Feedback
 

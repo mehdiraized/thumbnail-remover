@@ -55,3 +55,11 @@
 .wrt-list-4 {
 	columns: 4;
 }
+
+.wrt-flex {
+	display: flex;
+	gap: 1rem;
+}
+.wrt-flex > div {
+	width: 100%;
+}

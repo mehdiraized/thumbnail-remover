@@ -83,4 +83,154 @@ jQuery(document).ready(function ($) {
 			},
 		});
 	});
+
+	// optimize
+	$("#image-optimizer-form").submit(function (e) {
+		e.preventDefault();
+		var optimizationLevel = $("#optimization-level").val();
+
+		$("#optimization-progress").show();
+		$("#optimization-result").empty();
+
+		$.ajax({
+			url: thumbnailManager.ajax_url,
+			type: "POST",
+			data: {
+				action: "optimize_images",
+				nonce: thumbnailManager.nonce,
+				optimization_level: optimizationLevel,
+			},
+			success: function (response) {
+				if (response.success) {
+					$("#optimization-progress-bar").val(response.data.progress);
+					$("#optimization-progress-text").text(
+						response.data.progress.toFixed(2) + "%"
+					);
+
+					if (response.data.message) {
+						$("#optimization-result").html(
+							"<p>" + response.data.message + "</p>"
+						);
+						$("#optimization-progress").hide();
+					} else {
+						// Continue optimizing
+						$("#image-optimizer-form").submit();
+					}
+				} else {
+					$("#optimization-result").html(
+						'<p class="error">' + response.data.message + "</p>"
+					);
+					$("#optimization-progress").hide();
+				}
+			},
+			error: function () {
+				$("#optimization-result").html(
+					'<p class="error">An error occurred. Please try again.</p>'
+				);
+				$("#optimization-progress").hide();
+			},
+		});
+	});
+
+	// backup
+	var $backupYear = $("#backup_year");
+	var $backupMonth = $("#backup_month");
+
+	$('input[name="backup_type"]').change(function () {
+		if ($(this).val() === "date") {
+			$backupYear.prop("disabled", false);
+			updateMonthOptions();
+		} else {
+			$backupYear.prop("disabled", true);
+			$backupMonth.prop("disabled", true);
+		}
+	});
+
+	$backupYear.change(function () {
+		updateMonthOptions();
+	});
+
+	function updateMonthOptions() {
+		var availableDates = thumbnailManager.availableDates;
+		// var availableDates = JSON.parse(thumbnailManager.availableDates);
+		var selectedYear = $backupYear.val();
+		$backupMonth.empty().append(
+			$("<option>", {
+				value: "",
+				text: "Select Month",
+			})
+		);
+
+		if (selectedYear && availableDates[selectedYear]) {
+			$.each(availableDates[selectedYear], function (index, month) {
+				$backupMonth.append(
+					$("<option>", {
+						value: month,
+						text: month,
+					})
+				);
+			});
+			$backupMonth.prop("disabled", false);
+		} else {
+			$backupMonth.prop("disabled", true);
+		}
+	}
+
+	$("#backup-images-form").submit(function (e) {
+		e.preventDefault();
+
+		var backupType = $('input[name="backup_type"]:checked').val();
+		var backupYear = $("#backup_year").val();
+		var backupMonth = $("#backup_month").val();
+
+		if (backupType === "date" && (!backupYear || !backupMonth)) {
+			alert("Please select both year and month for date-specific backup.");
+			return;
+		}
+
+		$("#backup-progress").show();
+		$("#backup-result").empty();
+
+		$.ajax({
+			url: thumbnailManager.ajax_url,
+			type: "POST",
+			data: {
+				action: "backup_images",
+				nonce: thumbnailManager.nonce,
+				backup_type: backupType,
+				backup_year: backupYear,
+				backup_month: backupMonth,
+			},
+			success: function (response) {
+				if (response.success) {
+					$("#backup-progress-bar").val(100);
+					$("#backup-progress-text").text("100%");
+					$("#backup-result").html("<p>" + response.data.message + "</p>");
+					if (response.data.download_url) {
+						$("#backup-result").append(
+							'<p><a href="' +
+								response.data.download_url +
+								'" class="button">Download Backup</a></p>'
+						);
+					}
+				} else {
+					$("#backup-result").html(
+						'<p class="error">' + response.data.message + "</p>"
+					);
+				}
+				$("#backup-progress").hide();
+			},
+			error: function (jqXHR, textStatus, errorThrown) {
+				console.error("AJAX error:", textStatus, errorThrown);
+				$("#backup-result").html(
+					'<p class="error">An error occurred. Please try again. Error details: ' +
+						textStatus +
+						" - " +
+						errorThrown +
+						"</p>"
+				);
+				$("#backup-progress").hide();
+			},
+		});
+	});
 });
