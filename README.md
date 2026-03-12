@@ -3,8 +3,8 @@
 **Contributors:** mehdiraized  
 **Tags:** thumbnails, media management, image optimization, WordPress plugin, thumbnail remover  
 **Requires at least:** 5.0  
-**Tested up to:** 6.6.1  
-**Stable tag:** 1.1.4  
+**Tested up to:** 6.9.4  
+**Stable tag:** 1.1.5  
 **Requires PHP:** 7.0  
 **License:** GPLv2 or later  
 **License URI:** https://www.gnu.org/licenses/gpl-2.0.html
@@ -55,6 +55,12 @@ Go to the plugin settings page and look for the 'Backup Images' section. You can
 Yes, we regularly update the plugin to ensure compatibility with the latest WordPress version.
 
 ## Changelog
+
+### 1.1.5
+
+- Fixed a fatal error when disabling thumbnail sizes on PHP 8.x
+- Hardened settings and AJAX input handling for string-based values
+- Updated compatibility metadata for the latest WordPress release
 
 ### 1.1.4
 

@@ -3,8 +3,8 @@ Contributors: mehdiraized
 Donate link: https://www.buymeacoffee.com/mehdiraized
 Tags: thumbnails, media management, image optimization
 Requires at least: 5.0
-Tested up to: 6.6.1
-Stable tag: 1.1.4
+Tested up to: 6.9.4
+Stable tag: 1.1.5
 Requires PHP: 7.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -53,6 +53,11 @@ To contribute in translating this plugin please visit: [Wordpress Translation Re
 
 == Changelog ==
 
+= 1.1.5 =
+* Fixed a fatal error when disabling thumbnail sizes on PHP 8.x
+* Hardened settings and AJAX input handling for string-based values
+* Updated compatibility metadata for the latest WordPress release
+
 = 1.1.4 =
 * Added new feature: Media file backup functionality
 * Improved user interface for backup options
@@ -65,5 +70,5 @@ To contribute in translating this plugin please visit: [Wordpress Translation Re
 
 == Upgrade Notice ==
 
-= 1.1.4 =
-This update introduces a new media backup feature, allowing you to create backups of your media files. Update now to access this new functionality and benefit from various bug fixes and performance improvements.
+= 1.1.5 =
+This maintenance release fixes the thumbnail disable fatal error on PHP 8.x and updates compatibility metadata for the latest WordPress release.

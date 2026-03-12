@@ -4,7 +4,7 @@ Plugin Name: Thumbnail Remover and Size Manager
 Plugin URI: https://github.com/mehdiraized/thumbnail-remover/
 Description: Removes existing thumbnails, disables thumbnail generation, and manages thumbnail sizes
 Short Description: Manage and remove WordPress thumbnails easily.
-Version: 1.1.4
+Version: 1.1.5
 Author: Mehdi Rezaei
 Author URI: https://mehd.ir
 License: GPLv2 or later
@@ -255,8 +255,8 @@ function trpl_remove_thumbnails_ajax() {
 			throw new Exception( __( 'Unauthorized access', 'thumbnail-remover' ) );
 		}
 
-		$selected_sizes = isset( $_POST['sizes'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST['sizes'] ) ) : array();
-		$selected_folders = isset( $_POST['folders'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST['folders'] ) ) : array();
+		$selected_sizes = isset( $_POST['sizes'] ) ? trpl_normalize_text_list( $_POST['sizes'] ) : array();
+		$selected_folders = isset( $_POST['folders'] ) ? trpl_normalize_text_list( $_POST['folders'] ) : array();
 
 		if ( empty( $selected_sizes ) && empty( $selected_folders ) ) {
 			throw new Exception( __( 'Please select at least one size or one folder', 'thumbnail-remover' ) );
@@ -309,14 +309,36 @@ function trpl_any_size_matches( $filename, $selected_sizes ) {
 	return false;
 }
 
+// Normalize list-like values so older or malformed string-based settings do not break PHP 8+.
+function trpl_normalize_text_list( $values, $split_string = false ) {
+	if ( empty( $values ) ) {
+		return array();
+	}
+
+	if ( is_string( $values ) ) {
+		$values = $split_string ? explode( ',', $values ) : array( $values );
+	} elseif ( ! is_array( $values ) ) {
+		$values = (array) $values;
+	}
+
+	$values = array_map( 'sanitize_text_field', wp_unslash( $values ) );
+	$values = array_map( 'trim', $values );
+
+	return array_values( array_unique( array_filter( $values, 'strlen' ) ) );
+}
+
+function trpl_normalize_disabled_sizes( $sizes ) {
+	return trpl_normalize_text_list( $sizes, true );
+}
+
 // Admin page
 function trpl_admin_page() {
 	// Verify nonce
 	if ( isset( $_POST['thumbnail_manager_nonce'] ) ) {
-		$nonce = array_map( 'sanitize_text_field', wp_unslash( $_POST['thumbnail_manager_nonce'] ) );
-		if ( wp_verify_nonce( $nonce, 'thumbnail_manager_action' ) ) {
+		$nonce = sanitize_text_field( wp_unslash( $_POST['thumbnail_manager_nonce'] ) );
+		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) ) {
 			if ( isset( $_POST['disable_sizes'] ) ) {
-				$sizes_to_disable = isset( $_POST['disable'] ) ? array_map( 'sanitize_text_field', wp_unslash( $_POST['disable'] ) ) : array();
+				$sizes_to_disable = isset( $_POST['disable'] ) ? trpl_normalize_disabled_sizes( $_POST['disable'] ) : array();
 				update_option( 'trpl_disabled_image_sizes', $sizes_to_disable );
 				echo '<div class="updated"><p>' . esc_html__( 'Image sizes have been updated. The selected sizes will not be generated for future uploads.', 'thumbnail-remover' ) . '</p></div>';
 			}
@@ -326,7 +348,7 @@ function trpl_admin_page() {
 	$file_sizes = trpl_get_all_thumbnail_sizes_with_count();
 	$registered_sizes = trpl_get_all_image_sizes();
 	$folders = trpl_get_upload_folders_with_count();
-	$disabled_sizes = get_option( 'trpl_disabled_image_sizes', array() );
+	$disabled_sizes = trpl_normalize_disabled_sizes( get_option( 'trpl_disabled_image_sizes', array() ) );
 
 
 	$available_dates = trpl_get_available_dates();
@@ -513,7 +535,7 @@ function trpl_admin_page() {
 }
 
 // Apply the thumbnail size settings
-$trpl_disabled_sizes = get_option( 'trpl_disabled_image_sizes', array() );
+$trpl_disabled_sizes = trpl_normalize_disabled_sizes( get_option( 'trpl_disabled_image_sizes', array() ) );
 trpl_disable_specific_image_sizes( $trpl_disabled_sizes );
 
 
