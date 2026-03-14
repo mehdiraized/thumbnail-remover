@@ -16,4 +16,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run plugin check
-        uses: WordPress/plugin-check-action@v1.0.5
+        uses: WordPress/plugin-check-action@v1
