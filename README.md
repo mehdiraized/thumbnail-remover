@@ -1,60 +1,109 @@
 # Thumbnail Remover and Size Manager
 
 **Contributors:** mehdiraized  
-**Tags:** thumbnails, media management, image optimization, WordPress plugin, thumbnail remover  
+**Tags:** thumbnails, media management, image optimization, cleanup, regenerate thumbnails  
 **Requires at least:** 5.0  
 **Tested up to:** 6.9.4  
-**Stable tag:** 1.1.5  
-**Requires PHP:** 7.0  
+**Stable tag:** 2.0.0  
+**Requires PHP:** 7.4  
 **License:** GPLv2 or later  
 **License URI:** https://www.gnu.org/licenses/gpl-2.0.html
 
-Manage and remove WordPress thumbnails easily.
+Safely analyze, preview, trash, restore, regenerate, and manage WordPress thumbnails and image sizes.
 
-## Description
+## Overview
 
-WP Thumbnail Remover and Size Manager is a powerful tool designed to help WordPress users manage their media library efficiently. This plugin removes unnecessary thumbnail images, prevents new thumbnails from being generated, and provides a simple interface to manage and customize thumbnail sizes. It's lightweight, easy to use, and fully compatible with the latest version of WordPress.
+Thumbnail Remover and Size Manager 2.0 turns the plugin into a safer media maintenance workflow for WordPress sites.
 
-### Features
+Instead of removing thumbnails with a single irreversible step, v2 adds:
 
-- **Remove Existing Thumbnails:** Clean up your media library by deleting all existing thumbnail images.
-- **Disable Thumbnail Generation:** Prevent WordPress from generating new thumbnails for uploaded images.
-- **Manage Thumbnail Sizes:** Customize and manage the sizes of thumbnails to suit your needs.
-- **Backup Media Files:** Create backups of your media files, either for all uploads or specific year/month folders.
-- **Lightweight and Easy to Use:** Designed for simplicity and efficiency without compromising performance.
-- **Compatible with the Latest WordPress Version:** Regularly updated to ensure compatibility with the latest WordPress release.
+- Dry-run preview before cleanup
+- Trash and Restore workflow
+- Batch processing with progress
+- Unused media detection
+- Orphan thumbnail detection
+- Missing-size regeneration
+- Per-size analytics
+- Existing image-size disable controls
+- Zip backups for uploads
+
+## Main Features
+
+### Dry Run / Preview
+
+Preview cleanup before acting. The plugin shows:
+
+- How many files match your filters
+- How much storage will be recovered
+- Which sizes are involved
+- How many orphan thumbnails were detected
+
+### Trash / Restore
+
+Matching thumbnails are moved into plugin Trash instead of being deleted permanently. You can restore a trash batch later from the same admin screen.
+
+### Batch Processing
+
+Large scans, cleanup jobs, and regeneration jobs run in batches and report progress in the interface to reduce timeout problems on larger sites.
+
+### Unused Media Detection
+
+The analysis screen flags attachments that appear unused based on:
+
+- Featured image relationships
+- Parent attachment relationships
+- Post/page content references
+- Stored post meta / common builder content references
+
+These results should be reviewed manually before any broader media cleanup decisions.
+
+### Orphan Thumbnail Detection
+
+The plugin detects on-disk thumbnail files that are no longer tracked in WordPress attachment metadata.
+
+### Regenerate Missing Sizes
+
+If you keep or re-enable image sizes, you can regenerate missing derivatives in batch mode without regenerating everything manually.
+
+### Per-Size Analytics
+
+See per-size analytics including:
+
+- File count
+- Total storage used
+- Missing size count
+- Orphan count
+- Last seen attachment date
 
 ## Installation
 
-1. Upload the plugin files to the `/wp-content/plugins/thumbnail-remover` directory, or install the plugin through the WordPress plugins screen directly.
-2. Activate the plugin through the 'Plugins' screen in WordPress.
-3. Navigate to the plugin settings page to configure your options.
+1. Upload the plugin files to `/wp-content/plugins/thumbnail-remover`, or install it through the WordPress plugins screen.
+2. Activate the plugin.
+3. Open `Tools > Thumbnail Manager`.
+4. Run a full analysis before your first cleanup.
 
-## Usage
+## Recommended Workflow
 
-- After activating the plugin, go to the settings page to remove existing thumbnails and disable future thumbnail generation.
-- Customize the thumbnail sizes as needed to better manage your media files.
-- Use the new backup feature to create backups of your media files.
-
-## Frequently Asked Questions
-
-### How do I remove existing thumbnails?
-
-After activating the plugin, go to the plugin settings page and click on the 'Remove Thumbnails' button.
-
-### Can I customize the thumbnail sizes?
-
-Yes, you can manage and customize thumbnail sizes from the plugin settings page.
-
-### How do I create a backup of my media files?
-
-Go to the plugin settings page and look for the 'Backup Images' section. You can choose to backup all media files or select a specific year and month to backup. Click the 'Create Backup' button to start the process.
-
-### Is this plugin compatible with the latest version of WordPress?
-
-Yes, we regularly update the plugin to ensure compatibility with the latest WordPress version.
+1. Run **Full Analysis**
+2. Review per-size analytics, orphan counts, and probably unused media
+3. Create a backup zip if needed
+4. Use **Preview Cleanup**
+5. Move matching thumbnails to **Trash**
+6. Restore a batch if you need to reverse the cleanup
+7. Regenerate missing sizes after re-enabling any image sizes
 
 ## Changelog
+
+### 2.0.0
+
+- Added dry-run preview before cleanup
+- Added Trash and Restore workflow
+- Added batch processing with progress for analysis, cleanup, and regeneration
+- Added orphan thumbnail detection
+- Added probably unused media detection
+- Added missing-size regeneration
+- Added per-size analytics dashboard
+- Refreshed the admin UI and plugin descriptions
 
 ### 1.1.5
 
@@ -62,26 +111,8 @@ Yes, we regularly update the plugin to ensure compatibility with the latest Word
 - Hardened settings and AJAX input handling for string-based values
 - Updated compatibility metadata for the latest WordPress release
 
-### 1.1.4
+## Support
 
-- Added new feature: Media file backup functionality
-- Improved user interface for backup options
-- Bug fixes and performance improvements
+If the plugin saves you time, you can support future development here:
 
-### 1.1.3 Stable version
-
-- fix wordpress publish plugin issues
-
-[... rest of the changelog ...]
-
-## Support and Feedback
-
-For support and feedback, please visit our [support page](https://mehd.ir). We value your feedback and suggestions for improving the plugin.
-
-## Donate
-
-If you find this plugin useful, please consider supporting its development by [buying me a coffee](https://www.buymeacoffee.com/mehdiraized). Your support helps cover the costs of maintaining and improving the plugin, ensuring it remains free and accessible for everyone. Thank you!
-
-## License
-
-This plugin is licensed under the GPLv2 or later. For more details, visit [GPL License](https://www.gnu.org/licenses/gpl-2.0.html).
+[Buy Me a Coffee](https://www.buymeacoffee.com/mehdiraized)

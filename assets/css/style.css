@@ -1,65 +1,243 @@
 .wrt-admin {
 	display: flex;
 	flex-direction: column;
-	gap: 1rem;
-	margin-top: 0.75rem;
+	gap: 16px;
+	margin-top: 12px;
 }
 
-/* .wrt-row {
+.trpl-admin-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 320px;
+	gap: 20px;
+	align-items: start;
+	margin-top: 12px;
+}
+
+.trpl-admin-main {
+	margin-top: 0;
+}
+
+.trpl-admin-sidebar {
 	display: flex;
-	justify-content: space-between;
-	gap: 1rem;
-} */
+	flex-direction: column;
+	gap: 16px;
+	position: sticky;
+	top: 32px;
+}
 
 .wrt-box {
-	background-color: #fff;
-	padding: 0.25rem 1rem 1rem;
-	border-radius: 5px;
-	box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+	background: #fff;
+	padding: 20px;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+}
+
+.wrt-box h2 {
+	margin-top: 0;
 }
 
 .wrt-box h3 {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 1rem;
-	font-size: 0.875rem;
+	font-size: 14px;
+	margin-top: 20px;
+	margin-bottom: 12px;
 }
 
 .wrt-list {
 	list-style: none;
 	columns: 4;
+	margin: 0;
+	padding: 0;
 }
 
-@media (min-width: 0) and (max-width: 36em) {
-	.wrt-list {
-		columns: 1;
-	}
-}
-
-@media (min-width: 36em) and (max-width: 48em) {
-	.wrt-list {
-		columns: 2;
-	}
-}
-@media (min-width: 48em) and (max-width: 62em) {
-	.wrt-list {
-		columns: 3;
-	}
-}
-
-.wrt-left {
-	direction: ltr;
-}
-
-.wrt-list-4 {
-	columns: 4;
+.wrt-list li {
+	break-inside: avoid;
+	margin-bottom: 8px;
 }
 
 .wrt-flex {
 	display: flex;
-	gap: 1rem;
+	gap: 16px;
+	align-items: flex-start;
 }
+
 .wrt-flex > div {
 	width: 100%;
+}
+
+.trpl-inline-fields {
+	display: flex;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.trpl-inline-fields select {
+	min-width: 180px;
+}
+
+.trpl-action-row {
+	display: flex;
+	gap: 10px;
+	flex-wrap: wrap;
+	margin-top: 20px;
+}
+
+.trpl-progress {
+	margin-top: 16px;
+}
+
+.trpl-progress-bar {
+	background: #f0f0f1;
+	border: 1px solid #dcdcde;
+	border-radius: 999px;
+	height: 12px;
+	overflow: hidden;
+}
+
+.trpl-progress-bar span {
+	display: block;
+	width: 0;
+	height: 100%;
+	background: linear-gradient(90deg, #135e96, #2f80c0);
+	transition: width 0.25s ease;
+}
+
+.trpl-progress-text {
+	margin: 8px 0 0;
+	font-weight: 600;
+}
+
+.trpl-results {
+	margin-top: 16px;
+}
+
+.trpl-cards {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.trpl-card {
+	padding: 16px;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.trpl-card strong {
+	display: block;
+	font-size: 24px;
+	line-height: 1.1;
+	color: #135e96;
+}
+
+.trpl-card span {
+	display: block;
+	margin-top: 6px;
+	color: #50575e;
+}
+
+.trpl-pro-box {
+	border-color: #c9d7e4;
+	background:
+		radial-gradient(circle at top right, rgba(19, 94, 150, 0.08), transparent 34%),
+		linear-gradient(180deg, #ffffff, #f6fbff);
+}
+
+.trpl-ad-free-note {
+	padding: 12px 14px;
+	border-radius: 8px;
+	border: 1px solid #c9d7e4;
+	background: rgba(19, 94, 150, 0.06);
+}
+
+.trpl-pro-cards .trpl-card {
+	background: linear-gradient(180deg, #ffffff, #eef7ff);
+}
+
+.trpl-donate-box img {
+	max-width: 100%;
+	height: auto !important;
+}
+
+.trpl-ad-stack {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.trpl-ad-unit {
+	padding: 14px;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	background: linear-gradient(180deg, #ffffff, #f7f9fc);
+}
+
+.trpl-ad-placeholder {
+	min-height: 120px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 12px;
+	text-align: center;
+	border: 1px dashed #b9c3cf;
+	border-radius: 6px;
+	background: #f8fbff;
+	color: #1d2327;
+}
+
+.trpl-ad-placeholder small {
+	display: block;
+	max-width: 220px;
+	color: #646970;
+}
+
+.trpl-results code {
+	word-break: break-word;
+}
+
+@media (max-width: 1100px) {
+	.trpl-admin-layout {
+		grid-template-columns: 1fr;
+	}
+
+	.trpl-admin-sidebar {
+		position: static;
+	}
+
+	.wrt-list {
+		columns: 3;
+	}
+
+	.trpl-cards {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 782px) {
+	.wrt-list {
+		columns: 2;
+	}
+
+	.wrt-flex {
+		flex-direction: column;
+	}
+
+	.trpl-cards {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media (max-width: 520px) {
+	.wrt-list {
+		columns: 1;
+	}
+
+	.trpl-action-row {
+		flex-direction: column;
+		align-items: stretch;
+	}
 }

@@ -1,57 +1,93 @@
 === Thumbnail Remover and Size Manager ===
 Contributors: mehdiraized
 Donate link: https://www.buymeacoffee.com/mehdiraized
-Tags: thumbnails, media management, image optimization
+Tags: thumbnails, media management, image optimization, cleanup, regenerate thumbnails
 Requires at least: 5.0
 Tested up to: 6.9.4
-Stable tag: 1.1.5
-Requires PHP: 7.0
+Stable tag: 2.0.0
+Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Manage and remove WordPress thumbnails easily.
-
+Safely analyze, preview, trash, restore, regenerate, and manage WordPress thumbnails and image sizes.
 
 == Description ==
-WP Thumbnail Remover and Size Manager is a powerful tool designed to help WordPress users manage their media library efficiently. This plugin removes unnecessary thumbnail images, prevents new thumbnails from being generated, and provides a simple interface to manage and customize thumbnail sizes. It's lightweight, easy to use, and fully compatible with the latest version of WordPress.
 
-Features:
-* Remove existing thumbnails
-* Disable thumbnail generation
-* Manage thumbnail sizes
-* Backup media files
-* Lightweight and easy to use
-* Compatible with the latest WordPress version
+Thumbnail Remover and Size Manager 2.0 is a safer and more complete media-maintenance workflow for WordPress.
 
-Translation :
-To contribute in translating this plugin please visit: [Wordpress Translation Repository](https://translate.wordpress.org/projects/wp-plugins/thumbnail-remover/)
+Instead of deleting thumbnails blindly, the plugin now helps you:
+
+* Preview cleanup results before removing files
+* Move thumbnails to plugin Trash instead of deleting permanently
+* Restore trashed thumbnails later if needed
+* Process large libraries in batches with visible progress
+* Detect orphan thumbnails left behind on disk
+* Detect probably unused media items across post content, featured images, and common builder data
+* Regenerate missing image sizes in batches
+* Review per-size analytics including file counts, storage usage, missing sizes, and orphan counts
+* Disable selected image sizes for future uploads
+* Create zip backups for all uploads or a specific year/month folder
+
+This release is built for site owners, developers, agencies, and anyone trying to reduce thumbnail bloat without risking accidental data loss.
+
+== Features ==
+
+* Dry run / preview before cleanup
+* Trash and Restore workflow for safer deletion
+* Batch processing with real progress for scan, cleanup, and regeneration
+* Unused media detection
+* Orphan thumbnail detection
+* Regenerate missing sizes
+* Per-size analytics dashboard
+* Image size disable controls for future uploads
+* Media backup export to zip
 
 == Installation ==
+
 1. Upload the plugin files to the `/wp-content/plugins/thumbnail-remover` directory, or install the plugin through the WordPress plugins screen directly.
-2. Activate the plugin through the 'Plugins' screen in WordPress.
-3. Navigate to the plugin settings page to configure your options.
+2. Activate the plugin through the `Plugins` screen in WordPress.
+3. Go to `Tools > Thumbnail Manager`.
+4. Run a full analysis before your first cleanup so you can review thumbnail usage, orphan counts, and unused media signals.
 
 == Frequently Asked Questions ==
 
-= How do I remove existing thumbnails? =
-* After activating the plugin, go to the plugin settings page and click on the 'Remove Thumbnails' button.
+= Does the plugin permanently delete thumbnails? =
+No. Version 2 moves matching thumbnail files into plugin Trash first so they can be restored later.
 
-= Can I customize the thumbnail sizes? =
-* Yes, you can manage and customize thumbnail sizes from the plugin settings page.
+= What does Preview do? =
+Preview performs a dry run and shows how many files match your current selection, which sizes are involved, how much space can be recovered, and how many orphan thumbnails were found.
 
-= How do I create a backup of my media files? =
-* Go to the plugin settings page and find the 'Backup Images' section. You can choose to backup all media files or select a specific year and month to backup. Click the 'Create Backup' button to start the process.
+= What are orphan thumbnails? =
+Orphan thumbnails are files such as `image-300x300.jpg` that still exist on disk but are no longer tracked in WordPress attachment metadata.
 
-= Is this plugin compatible with the latest version of WordPress? =
-* Yes, we regularly update the plugin to ensure compatibility with the latest WordPress version.
+= How does unused media detection work? =
+The plugin scans image attachments and checks for usage in featured images, parent attachments, post content, and stored builder/meta content. The results are best treated as “probably unused” so you can review them manually.
+
+= Can I regenerate missing sizes after enabling a size again? =
+Yes. Use the `Regenerate Missing Sizes` section to rebuild missing image sizes in batches.
+
+= Can I back up my files before cleanup? =
+Yes. You can create a zip backup for all uploads or for a selected year/month folder.
 
 == Screenshots ==
 
-1. Settings Page
-2. Thumbnail Management
-3. Media Backup Options
+1. Library analysis with per-size analytics and unused media results
+2. Dry run preview before moving thumbnails to Trash
+3. Trash and Restore workflow
+4. Batch regeneration of missing image sizes
 
 == Changelog ==
+
+= 2.0.0 =
+* Added dry-run preview before cleanup
+* Added Trash and Restore workflow for thumbnail removal
+* Added batch processing with progress for analysis, cleanup, and regeneration
+* Added orphan thumbnail detection
+* Added probably unused media detection
+* Added missing-size regeneration workflow
+* Added per-size analytics dashboard
+* Refreshed admin UI for the new v2 workflow
+* Updated plugin description and documentation
 
 = 1.1.5 =
 * Fixed a fatal error when disabling thumbnail sizes on PHP 8.x
@@ -63,12 +99,7 @@ To contribute in translating this plugin please visit: [Wordpress Translation Re
 * Improved user interface for backup options
 * Bug fixes and performance improvements
 
-= 1.1.3 Stable version =
-* fix wordpress publish plugin issues
-
-[... rest of the changelog ...]
-
 == Upgrade Notice ==
 
-= 1.1.5 =
-This maintenance release fixes the thumbnail disable fatal error on PHP 8.x and updates compatibility metadata for the latest WordPress release.
+= 2.0.0 =
+This major update introduces preview before cleanup, Trash and Restore, batch processing, unused media detection, orphan thumbnail detection, missing-size regeneration, and per-size analytics.

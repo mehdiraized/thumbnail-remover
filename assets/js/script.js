@@ -1,174 +1,355 @@
-jQuery(document).ready(function ($) {
-	$("#select-all-sizes").click(function () {
-		$('#list_sizes input[type="checkbox"]').prop("checked", true);
-	});
+jQuery(function ($) {
+	function collectValues(selector) {
+		return $(selector)
+			.map(function () {
+				return $(this).val();
+			})
+			.get();
+	}
 
-	$("#select-all-folders").click(function () {
-		$('#list_folders input[type="checkbox"]').prop("checked", true);
-	});
+	function setProgress($container, value) {
+		const progress = Math.max(0, Math.min(100, Number(value) || 0));
+		$container.prop("hidden", false);
+		$container.find(".trpl-progress-bar span").css("width", progress + "%");
+		$container.find(".trpl-progress-text").text(progress + "%");
+	}
 
-	$("#remove-thumbnails-form").submit(function (e) {
-		e.preventDefault();
+	function hideProgress($container) {
+		$container.prop("hidden", true);
+		$container.find(".trpl-progress-bar span").css("width", "0%");
+		$container.find(".trpl-progress-text").text("0%");
+	}
 
-		var sizes = [];
-		var folders = [];
+	function renderNotice($container, message, type) {
+		const cssClass = type === "error" ? "notice notice-error" : "notice notice-success";
+		$container.html('<div class="' + cssClass + '"><p>' + message + "</p></div>");
+	}
 
-		$('input[name="sizes[]"]:checked').each(function () {
-			sizes.push($(this).val());
+	function ajaxPost(action, data) {
+		return $.ajax({
+			url: thumbnailManager.ajax_url,
+			type: "POST",
+			dataType: "json",
+			data: $.extend(
+				{
+					action: action,
+					nonce: thumbnailManager.nonce,
+				},
+				data || {}
+			),
 		});
+	}
 
-		$('input[name="folders[]"]:checked').each(function () {
-			folders.push($(this).val());
-		});
+	function runJob(options) {
+		return ajaxPost(options.startAction, options.startData)
+			.then(function (response) {
+				if (!response.success) {
+					throw new Error(response.data && response.data.message ? response.data.message : thumbnailManager.i18n.error);
+				}
 
-		if (sizes.length === 0 && folders.length === 0) {
-			alert("Please select at least one size or one folder.");
-			return;
+				const jobId = response.data.job_id;
+
+				function tick() {
+					return ajaxPost(options.processAction, { job_id: jobId }).then(function (processResponse) {
+						if (!processResponse.success) {
+							throw new Error(processResponse.data && processResponse.data.message ? processResponse.data.message : thumbnailManager.i18n.error);
+						}
+
+						const data = processResponse.data;
+						if (typeof options.onProgress === "function") {
+							options.onProgress(data);
+						}
+
+						if (data.complete) {
+							if (typeof options.onComplete === "function") {
+								options.onComplete(data, response.data);
+							}
+							return data;
+						}
+
+						return tick();
+					});
+				}
+
+				return tick();
+			})
+			.catch(function (error) {
+				if (typeof options.onError === "function") {
+					options.onError(error);
+				}
+			});
+	}
+
+	function formatBytes(rawBytes) {
+		const bytes = Number(rawBytes) || 0;
+		if (bytes === 0) {
+			return "0 B";
 		}
 
-		var confirmMessage = "";
-		if (sizes.length === 0) {
-			confirmMessage =
-				"Are you sure you want to remove ALL thumbnail sizes from the selected folders?";
-		} else if (folders.length === 0) {
-			confirmMessage =
-				"Are you sure you want to remove the selected sizes from ALL folders?";
+		const units = ["B", "KB", "MB", "GB", "TB"];
+		const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+		const value = bytes / Math.pow(1024, exponent);
+		return value.toFixed(value >= 10 || exponent === 0 ? 0 : 1) + " " + units[exponent];
+	}
+
+	function renderAnalysis(summary) {
+		const cards = [
+			{ label: "Attachments scanned", value: summary.attachments || 0 },
+			{ label: "Thumbnail files", value: summary.thumbnail_files || 0 },
+			{ label: "Thumbnail storage", value: formatBytes(summary.thumbnail_bytes || 0) },
+			{ label: "Orphan thumbnails", value: summary.orphans || 0 },
+			{ label: "Missing size records", value: summary.missing_sizes || 0 },
+			{ label: "Probably unused media", value: summary.unused_media || 0 },
+		];
+
+		let html = '<div class="trpl-cards">';
+		cards.forEach(function (card) {
+			html += '<div class="trpl-card"><strong>' + card.value + '</strong><span>' + card.label + "</span></div>";
+		});
+		html += "</div>";
+
+		html += '<h3>Per-size analytics</h3>';
+		html += '<table class="widefat striped"><thead><tr><th>Size</th><th>Files</th><th>Storage</th><th>Missing</th><th>Orphans</th><th>Last seen</th></tr></thead><tbody>';
+
+		const sizeRows = Object.keys(summary.size_analytics || {}).sort();
+		if (!sizeRows.length) {
+			html += "<tr><td colspan='6'>No size data found.</td></tr>";
 		} else {
-			confirmMessage =
-				"Are you sure you want to remove the selected thumbnail sizes from the selected folders?";
+			sizeRows.forEach(function (key) {
+				const row = summary.size_analytics[key];
+				html += "<tr>";
+				html += "<td>" + row.label + (row.dimensions ? " <code>" + row.dimensions + "</code>" : "") + "</td>";
+				html += "<td>" + (row.count || 0) + "</td>";
+				html += "<td>" + formatBytes(row.bytes || 0) + "</td>";
+				html += "<td>" + (row.missing || 0) + "</td>";
+				html += "<td>" + (row.orphans || 0) + "</td>";
+				html += "<td>" + (row.last_seen || "—") + "</td>";
+				html += "</tr>";
+			});
+		}
+		html += "</tbody></table>";
+
+		html += '<h3>Probably unused media</h3>';
+		html += '<p>' + (summary.unused_media || 0) + " item(s), " + formatBytes(summary.unused_media_bytes || 0) + " total.</p>";
+		html += '<table class="widefat striped"><thead><tr><th>Attachment</th><th>Path</th><th>Size</th><th>Date</th></tr></thead><tbody>';
+		if (!summary.unused_items || !summary.unused_items.length) {
+			html += "<tr><td colspan='4'>No unused media found in this scan.</td></tr>";
+		} else {
+			summary.unused_items.forEach(function (item) {
+				const title = item.edit_link ? '<a href="' + item.edit_link + '">' + (item.title || ("#" + item.attachment_id)) + "</a>" : (item.title || ("#" + item.attachment_id));
+				html += "<tr>";
+				html += "<td>" + title + "</td>";
+				html += "<td><code>" + (item.relative_path || "") + "</code></td>";
+				html += "<td>" + formatBytes(item.bytes || 0) + "</td>";
+				html += "<td>" + (item.date || "—") + "</td>";
+				html += "</tr>";
+			});
+		}
+		html += "</tbody></table>";
+
+		return html;
+	}
+
+	function renderPreview(summary) {
+		if (!summary || !summary.total_files) {
+			return '<div class="notice notice-warning"><p>' + thumbnailManager.i18n.previewEmpty + "</p></div>";
 		}
 
-		if (!confirm(confirmMessage)) {
+		let html = '<div class="trpl-cards">';
+		html += '<div class="trpl-card"><strong>' + summary.total_files + '</strong><span>Matching files</span></div>';
+		html += '<div class="trpl-card"><strong>' + summary.total_size + '</strong><span>Recoverable storage</span></div>';
+		html += '<div class="trpl-card"><strong>' + (summary.orphans || 0) + '</strong><span>Orphan thumbnails</span></div>';
+		html += "</div>";
+
+		html += '<table class="widefat striped"><thead><tr><th>Size</th><th>Files</th><th>Storage</th></tr></thead><tbody>';
+		Object.keys(summary.sizes || {}).forEach(function (sizeName) {
+			const row = summary.sizes[sizeName];
+			html += "<tr>";
+			html += "<td>" + sizeName + "</td>";
+			html += "<td>" + row.count + "</td>";
+			html += "<td>" + formatBytes(row.bytes) + "</td>";
+			html += "</tr>";
+		});
+		html += "</tbody></table>";
+
+		return html;
+	}
+
+	$("#trpl-run-analysis").on("click", function () {
+		const $progress = $("#trpl-analysis-progress");
+		const $results = $("#trpl-analysis-results");
+		$results.empty();
+		setProgress($progress, 0);
+
+		runJob({
+			startAction: "trpl_start_analysis",
+			processAction: "trpl_process_analysis",
+			startData: {},
+			onProgress: function (data) {
+				setProgress($progress, data.progress);
+			},
+			onComplete: function (data) {
+				hideProgress($progress);
+				$results.html(renderAnalysis(data.summary));
+			},
+			onError: function (error) {
+				hideProgress($progress);
+				renderNotice($results, error.message || thumbnailManager.i18n.error, "error");
+			},
+		});
+	});
+
+	$("#trpl-preview-delete").on("click", function () {
+		const sizes = collectValues('#trpl-delete-form input[name="sizes[]"]:checked');
+		const folders = collectValues('#trpl-delete-form input[name="folders[]"]:checked');
+		const $results = $("#trpl-preview-results");
+		$results.html('<p>' + thumbnailManager.i18n.processing + "</p>");
+
+		ajaxPost("trpl_preview_delete", { sizes: sizes, folders: folders })
+			.done(function (response) {
+				if (!response.success) {
+					renderNotice($results, response.data && response.data.message ? response.data.message : thumbnailManager.i18n.error, "error");
+					return;
+				}
+				$results.html(renderPreview(response.data.summary));
+			})
+			.fail(function () {
+				renderNotice($results, thumbnailManager.i18n.error, "error");
+			});
+	});
+
+	$("#trpl-delete-form").on("submit", function (event) {
+		event.preventDefault();
+		if (!window.confirm(thumbnailManager.i18n.confirmTrash)) {
 			return;
 		}
 
-		$("#progress-bar, #progress-text").show();
-		$("#result-message").hide();
+		const sizes = collectValues('#trpl-delete-form input[name="sizes[]"]:checked');
+		const folders = collectValues('#trpl-delete-form input[name="folders[]"]:checked');
+		const $progress = $("#trpl-delete-progress");
+		const $results = $("#trpl-delete-results");
+		setProgress($progress, 0);
+		$results.empty();
 
-		$.ajax({
-			url: thumbnailManager.ajax_url,
-			type: "POST",
-			data: {
-				action: "remove_thumbnails",
-				nonce: thumbnailManager.nonce,
-				sizes: sizes,
-				folders: folders,
+		runJob({
+			startAction: "trpl_start_delete",
+			processAction: "trpl_process_delete",
+			startData: { sizes: sizes, folders: folders },
+			onProgress: function (data) {
+				setProgress($progress, data.progress);
 			},
-			success: function (response) {
-				if (response.success) {
-					$("#progress").css("width", "100%");
-					$("#progress-text").text("100% Complete");
-					$("#result-message")
-						.html(response.data.message)
-						.removeClass("notice-error")
-						.addClass("notice-success")
-						.show();
-				} else {
-					$("#result-message")
-						.html(response.data.message)
-						.removeClass("notice-success")
-						.addClass("notice-error")
-						.show();
-				}
+			onComplete: function (data, startData) {
+				hideProgress($progress);
+				const message =
+					"Moved " +
+					(data.result.moved || 0) +
+					" file(s) to Trash, recovered " +
+					formatBytes(data.result.bytes || 0) +
+					", orphan thumbnails: " +
+					(data.result.orphans || 0) +
+					". Trash batch: <code>" +
+					(startData.trash_batch_id || data.trash_batch_id || "") +
+					"</code>.";
+				renderNotice($results, message, "success");
 			},
-			error: function () {
-				$("#result-message")
-					.html("An error occurred. Please try again.")
-					.removeClass("notice-success")
-					.addClass("notice-error")
-					.show();
-			},
-			complete: function () {
-				$("#progress-bar, #progress-text").hide();
+			onError: function (error) {
+				hideProgress($progress);
+				renderNotice($results, error.message || thumbnailManager.i18n.error, "error");
 			},
 		});
 	});
 
-	// optimize
-	$("#image-optimizer-form").submit(function (e) {
-		e.preventDefault();
-		var optimizationLevel = $("#optimization-level").val();
+	$(document).on("click", ".trpl-restore-trash", function () {
+		const $button = $(this);
+		const batchId = $button.data("batch-id");
+		const $results = $("#trpl-trash-results");
 
-		$("#optimization-progress").show();
-		$("#optimization-result").empty();
+		if (!window.confirm(thumbnailManager.i18n.confirmRestore)) {
+			return;
+		}
 
-		$.ajax({
-			url: thumbnailManager.ajax_url,
-			type: "POST",
-			data: {
-				action: "optimize_images",
-				nonce: thumbnailManager.nonce,
-				optimization_level: optimizationLevel,
-			},
-			success: function (response) {
-				if (response.success) {
-					$("#optimization-progress-bar").val(response.data.progress);
-					$("#optimization-progress-text").text(
-						response.data.progress.toFixed(2) + "%"
-					);
-
-					if (response.data.message) {
-						$("#optimization-result").html(
-							"<p>" + response.data.message + "</p>"
-						);
-						$("#optimization-progress").hide();
-					} else {
-						// Continue optimizing
-						$("#image-optimizer-form").submit();
-					}
-				} else {
-					$("#optimization-result").html(
-						'<p class="error">' + response.data.message + "</p>"
-					);
-					$("#optimization-progress").hide();
+		$button.prop("disabled", true);
+		ajaxPost("trpl_restore_trash", { batch_id: batchId })
+			.done(function (response) {
+				if (!response.success) {
+					renderNotice($results, response.data && response.data.message ? response.data.message : thumbnailManager.i18n.error, "error");
+					$button.prop("disabled", false);
+					return;
 				}
+
+				renderNotice($results, response.data.message, "success");
+				const $row = $button.closest("tr");
+				$row.find("td").eq(4).text("Restored");
+				$row.find("td").eq(5).text("Already restored");
+			})
+			.fail(function () {
+				renderNotice($results, thumbnailManager.i18n.error, "error");
+				$button.prop("disabled", false);
+			});
+	});
+
+	$("#trpl-regenerate-form").on("submit", function (event) {
+		event.preventDefault();
+		if (!window.confirm(thumbnailManager.i18n.confirmRegenerate)) {
+			return;
+		}
+
+		const sizes = collectValues('#trpl-regenerate-form input[name="regen_sizes[]"]:checked');
+		const folders = collectValues('#trpl-regenerate-form input[name="regen_folders[]"]:checked');
+		const $progress = $("#trpl-regenerate-progress");
+		const $results = $("#trpl-regenerate-results");
+		setProgress($progress, 0);
+		$results.empty();
+
+		runJob({
+			startAction: "trpl_start_regenerate",
+			processAction: "trpl_process_regenerate",
+			startData: { sizes: sizes, folders: folders },
+			onProgress: function (data) {
+				setProgress($progress, data.progress);
 			},
-			error: function () {
-				$("#optimization-result").html(
-					'<p class="error">An error occurred. Please try again.</p>'
-				);
-				$("#optimization-progress").hide();
+			onComplete: function (data) {
+				hideProgress($progress);
+				const message =
+					"Processed " +
+					(data.result.attachments || 0) +
+					" attachment(s) and generated " +
+					(data.result.generated || 0) +
+					" missing size(s).";
+				renderNotice($results, message, "success");
+			},
+			onError: function (error) {
+				hideProgress($progress);
+				renderNotice($results, error.message || thumbnailManager.i18n.error, "error");
 			},
 		});
 	});
 
-	// backup
-	var $backupYear = $("#backup_year");
-	var $backupMonth = $("#backup_month");
+	const $backupYear = $("#backup_year");
+	const $backupMonth = $("#backup_month");
 
-	$('input[name="backup_type"]').change(function () {
+	$('input[name="backup_type"]').on("change", function () {
 		if ($(this).val() === "date") {
 			$backupYear.prop("disabled", false);
 			updateMonthOptions();
 		} else {
-			$backupYear.prop("disabled", true);
-			$backupMonth.prop("disabled", true);
+			$backupYear.prop("disabled", true).val("");
+			$backupMonth.prop("disabled", true).val("");
 		}
 	});
 
-	$backupYear.change(function () {
+	$backupYear.on("change", function () {
 		updateMonthOptions();
 	});
 
 	function updateMonthOptions() {
-		var availableDates = thumbnailManager.availableDates;
-		// var availableDates = JSON.parse(thumbnailManager.availableDates);
-		var selectedYear = $backupYear.val();
-		$backupMonth.empty().append(
-			$("<option>", {
-				value: "",
-				text: "Select Month",
-			})
-		);
+		const availableDates = thumbnailManager.availableDates || {};
+		const selectedYear = $backupYear.val();
+		$backupMonth.empty().append($("<option>", { value: "", text: "Select Month" }));
 
 		if (selectedYear && availableDates[selectedYear]) {
-			$.each(availableDates[selectedYear], function (index, month) {
-				$backupMonth.append(
-					$("<option>", {
-						value: month,
-						text: month,
-					})
-				);
+			$.each(availableDates[selectedYear], function (_, month) {
+				$backupMonth.append($("<option>", { value: month, text: month }));
 			});
 			$backupMonth.prop("disabled", false);
 		} else {
@@ -176,61 +357,46 @@ jQuery(document).ready(function ($) {
 		}
 	}
 
-	$("#backup-images-form").submit(function (e) {
-		e.preventDefault();
+	$("#backup-images-form").on("submit", function (event) {
+		event.preventDefault();
 
-		var backupType = $('input[name="backup_type"]:checked').val();
-		var backupYear = $("#backup_year").val();
-		var backupMonth = $("#backup_month").val();
+		const backupType = $('input[name="backup_type"]:checked').val();
+		const backupYear = $backupYear.val();
+		const backupMonth = $backupMonth.val();
+		const $progress = $("#backup-progress");
+		const $results = $("#backup-result");
 
 		if (backupType === "date" && (!backupYear || !backupMonth)) {
-			alert("Please select both year and month for date-specific backup.");
+			renderNotice($results, thumbnailManager.i18n.selectYearMonth, "error");
 			return;
 		}
 
-		$("#backup-progress").show();
-		$("#backup-result").empty();
+		setProgress($progress, 25);
+		$results.empty();
 
-		$.ajax({
-			url: thumbnailManager.ajax_url,
-			type: "POST",
-			data: {
-				action: "backup_images",
-				nonce: thumbnailManager.nonce,
-				backup_type: backupType,
-				backup_year: backupYear,
-				backup_month: backupMonth,
-			},
-			success: function (response) {
-				if (response.success) {
-					$("#backup-progress-bar").val(100);
-					$("#backup-progress-text").text("100%");
-					$("#backup-result").html("<p>" + response.data.message + "</p>");
-					if (response.data.download_url) {
-						$("#backup-result").append(
-							'<p><a href="' +
-								response.data.download_url +
-								'" class="button">Download Backup</a></p>'
-						);
-					}
-				} else {
-					$("#backup-result").html(
-						'<p class="error">' + response.data.message + "</p>"
-					);
+		ajaxPost("backup_images", {
+			backup_type: backupType,
+			backup_year: backupYear,
+			backup_month: backupMonth,
+		})
+			.done(function (response) {
+				if (!response.success) {
+					hideProgress($progress);
+					renderNotice($results, response.data && response.data.message ? response.data.message : thumbnailManager.i18n.error, "error");
+					return;
 				}
-				$("#backup-progress").hide();
-			},
-			error: function (jqXHR, textStatus, errorThrown) {
-				console.error("AJAX error:", textStatus, errorThrown);
-				$("#backup-result").html(
-					'<p class="error">An error occurred. Please try again. Error details: ' +
-						textStatus +
-						" - " +
-						errorThrown +
-						"</p>"
-				);
-				$("#backup-progress").hide();
-			},
-		});
+
+				setProgress($progress, 100);
+				let message = response.data.message;
+				if (response.data.download_url) {
+					message += ' <a class="button button-secondary" href="' + response.data.download_url + '">Download Backup</a>';
+				}
+				renderNotice($results, message, "success");
+				hideProgress($progress);
+			})
+			.fail(function () {
+				hideProgress($progress);
+				renderNotice($results, thumbnailManager.i18n.error, "error");
+			});
 	});
 });
