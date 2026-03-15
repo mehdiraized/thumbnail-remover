@@ -1,5 +1,5 @@
 # Packages and Dependencies
-/node_mudules
+/node_modules
 /vendor
 
 # SVN Files
@@ -7,3 +7,7 @@
 
 # Plugin Zip File
 thumbnail-remover.zip
+
+# Generated artifacts
+/output/
+/.wp-env.json

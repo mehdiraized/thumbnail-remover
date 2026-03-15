@@ -1,0 +1,87 @@
+name: Plugin Screenshots
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  PLUGIN_SLUG: thumbnail-remover
+  WP_BASE_URL: http://localhost:8888
+  WP_ADMIN_USER: admin
+  WP_ADMIN_PASSWORD: password
+  WPORG_PLUGIN_SLUG: thumbnail-remover
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.2"
+          extensions: gd, zip
+          coverage: none
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Generate release screenshots
+        run: npm run screenshots:refresh
+
+      - name: Stop wp-env
+        if: always()
+        run: npx wp-env stop
+
+      - name: Commit refreshed screenshots to GitHub
+        run: |
+          if [ -z "$(git status --short -- assets/screenshots)" ]; then
+            echo "No screenshot changes detected."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/screenshots/screenshot-1.png assets/screenshots/screenshot-2.png assets/screenshots/screenshot-3.png assets/screenshots/screenshot-4.png
+          git commit -m "chore: refresh release screenshots"
+          git push origin HEAD:main
+
+      - name: Publish screenshots to WordPress.org SVN
+        if: ${{ secrets.WPORG_USERNAME != '' && secrets.WPORG_PASSWORD != '' }}
+        env:
+          WPORG_USERNAME: ${{ secrets.WPORG_USERNAME }}
+          WPORG_PASSWORD: ${{ secrets.WPORG_PASSWORD }}
+        run: |
+          svn checkout --non-interactive --trust-server-cert-failures=unknown-ca --username "$WPORG_USERNAME" --password "$WPORG_PASSWORD" "https://plugins.svn.wordpress.org/${WPORG_PLUGIN_SLUG}" wporg-svn
+          mkdir -p wporg-svn/assets
+          cp assets/screenshots/screenshot-1.png wporg-svn/assets/
+          cp assets/screenshots/screenshot-2.png wporg-svn/assets/
+          cp assets/screenshots/screenshot-3.png wporg-svn/assets/
+          cp assets/screenshots/screenshot-4.png wporg-svn/assets/
+          svn add --force wporg-svn/assets/*
+
+          if svn status wporg-svn | grep -q '^[AMR]'; then
+            svn commit wporg-svn -m "Refresh plugin screenshots after release" --non-interactive --trust-server-cert-failures=unknown-ca --username "$WPORG_USERNAME" --password "$WPORG_PASSWORD"
+          else
+            echo "No SVN screenshot changes detected."
+          fi

@@ -1,0 +1,13 @@
+{
+  "name": "thumbnail-remover",
+  "private": true,
+  "scripts": {
+    "screenshots:bootstrap": "bash scripts/bootstrap-screenshot-env.sh",
+    "screenshots:capture": "node scripts/generate-plugin-screenshots.mjs",
+    "screenshots:refresh": "npm run screenshots:bootstrap && npm run screenshots:capture"
+  },
+  "devDependencies": {
+    "@wordpress/env": "^10.20.0",
+    "playwright": "^1.54.2"
+  }
+}
