@@ -3,7 +3,7 @@ Contributors: mehdiraized
 Donate link: https://www.buymeacoffee.com/mehdiraized
 Tags: thumbnails, media management, image optimization, cleanup, regenerate thumbnails
 Requires at least: 5.0
-Tested up to: 6.9.4
+Tested up to: 6.9
 Stable tag: 2.0.0
 Requires PHP: 7.4
 License: GPLv2 or later
