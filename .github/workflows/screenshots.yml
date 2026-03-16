@@ -1,9 +1,11 @@
 name: Plugin Screenshots
 
 on:
-  release:
+  workflow_run:
+    workflows:
+      - GitHub Release
     types:
-      - published
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -19,13 +21,14 @@ env:
 
 jobs:
   screenshots:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

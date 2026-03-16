@@ -27,7 +27,7 @@ function shellQuote(value) {
 }
 
 async function createFixture(browser, filename, title, subtitle, background, accent) {
-  const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  const page = await browser.newPage({ viewport: { width: 2600, height: 1700 } });
   await page.setContent(
     `
       <style>
@@ -161,6 +161,12 @@ async function generateFixtures() {
 await generateFixtures();
 fs.copyFileSync(wpEnvTemplate, wpEnvConfig);
 
+try {
+  run("npx wp-env stop");
+} catch (error) {
+  // Ignore stop failures when the environment has not been started yet.
+}
+
 run("npx wp-env start --update");
 
 const setupScript = `
@@ -168,6 +174,8 @@ set -e
 wp plugin activate '${pluginSlug}'
 wp option update blogname 'Thumbnail Remover Demo'
 wp option update blogdescription 'Automated screenshot environment'
+rm -rf /var/www/html/wp-content/uploads/trpl-trash
+wp option delete trpl_jobs
 
 attachment_ids=$(wp post list --post_type=attachment --format=ids)
 if [ -n "$attachment_ids" ]; then
@@ -189,6 +197,36 @@ if [ -n "$second_id" ]; then
   second_url=$(wp post get $second_id --field=guid)
   wp post update $demo_post_id --post_content="<p>Automated screenshot content.</p><p><img src='$second_url' alt='Demo image'></p>"
 fi
+
+wp eval '
+$uploads = wp_upload_dir();
+$base_dir = trailingslashit( $uploads["basedir"] );
+$attachments = get_posts(
+  array(
+    "post_type" => "attachment",
+    "posts_per_page" => -1,
+    "post_status" => "inherit",
+  )
+);
+
+foreach ( $attachments as $attachment ) {
+  $metadata = wp_get_attachment_metadata( $attachment->ID );
+  if ( empty( $metadata["sizes"]["2048x2048"] ) ) {
+    continue;
+  }
+
+  $subdir = dirname( $metadata["file"] );
+  $size_file = $metadata["sizes"]["2048x2048"]["file"];
+  $target_path = $base_dir . ( "." !== $subdir ? trailingslashit( $subdir ) : "" ) . $size_file;
+
+  if ( file_exists( $target_path ) ) {
+    wp_delete_file( $target_path );
+  }
+
+  unset( $metadata["sizes"]["2048x2048"] );
+  wp_update_attachment_metadata( $attachment->ID, $metadata );
+}
+'
 `;
 
 run(`npx wp-env run cli --env-cwd=wp-content/plugins/${pluginSlug} -- sh -lc ${shellQuote(setupScript)}`);
