@@ -11,6 +11,8 @@
 
 Safely analyze, preview, trash, restore, regenerate, and manage WordPress thumbnails and image sizes.
 
+![Thumbnail Manager Library Analysis](assets/screenshots/screenshot-1.png)
+
 ## Overview
 
 Thumbnail Remover and Size Manager 2.0 turns the plugin into a safer media maintenance workflow for WordPress sites.

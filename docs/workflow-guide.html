@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Recommended Thumbnail Cleanup Workflow</title>
+    <meta
+      name="description"
+      content="A practical workflow for analyzing WordPress thumbnails, previewing cleanup impact, using Trash safely, and regenerating missing sizes."
+    >
+    <link rel="canonical" href="https://mehdiraized.github.io/thumbnail-remover/workflow-guide.html">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="docs-page">
+      <div class="container narrow">
+        <p><a class="back-link" href="index.html">Back to landing page</a></p>
+        <p class="eyebrow">Workflow Guide</p>
+        <h1>A safer cleanup process for client sites and production media libraries</h1>
+
+        <div class="callout">
+          <h2>Short version</h2>
+          <p>Analyze first, preview second, Trash third, verify fourth, and regenerate only when there is a real missing-size need.</p>
+        </div>
+
+        <h2>When to use analysis</h2>
+        <p>Use analysis before any big cleanup. It helps you understand which image sizes are consuming space and whether orphan or unused media exists.</p>
+
+        <h2>When to use preview</h2>
+        <p>Use preview any time you are about to remove files. This is especially important on sites with custom themes, page builders, or imported legacy media.</p>
+
+        <h2>When Trash is safer than deletion</h2>
+        <p>Trash is the best default when you work on a live site, a client site, or a library with mixed historical content. It lets you reverse the change without pulling from backup immediately.</p>
+
+        <h2>When to regenerate</h2>
+        <p>Regenerate only after confirming a size is needed. Rebuilding missing derivatives is useful after restoring a workflow, enabling a size again, or migrating a theme that expects specific dimensions.</p>
+
+        <h2>Suggested operating checklist</h2>
+        <ol>
+          <li>Run analysis and review size analytics.</li>
+          <li>Limit your first preview to one size or one folder.</li>
+          <li>Move matching files to Trash.</li>
+          <li>Check a few representative posts or products.</li>
+          <li>Restore if anything unexpected appears.</li>
+          <li>Regenerate missing sizes for approved dimensions.</li>
+        </ol>
+      </div>
+    </main>
+  </body>
+</html>
