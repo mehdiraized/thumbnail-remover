@@ -77,10 +77,14 @@ jobs:
         run: |
           svn checkout --non-interactive --trust-server-cert-failures=unknown-ca --username "$WPORG_USERNAME" --password "$WPORG_PASSWORD" "https://plugins.svn.wordpress.org/${WPORG_PLUGIN_SLUG}" wporg-svn
           mkdir -p wporg-svn/assets
-          cp assets/screenshots/screenshot-1.png wporg-svn/assets/
-          cp assets/screenshots/screenshot-2.png wporg-svn/assets/
-          cp assets/screenshots/screenshot-3.png wporg-svn/assets/
-          cp assets/screenshots/screenshot-4.png wporg-svn/assets/
+          if [ -d wporg-svn/assets/screenshots ]; then
+            svn rm --force wporg-svn/assets/screenshots || rm -rf wporg-svn/assets/screenshots
+          fi
+
+          cp assets/screenshots/screenshot-1.png wporg-svn/assets/screenshot-1.png
+          cp assets/screenshots/screenshot-2.png wporg-svn/assets/screenshot-2.png
+          cp assets/screenshots/screenshot-3.png wporg-svn/assets/screenshot-3.png
+          cp assets/screenshots/screenshot-4.png wporg-svn/assets/screenshot-4.png
           svn add --force wporg-svn/assets/*
 
           if svn status wporg-svn | grep -q '^[AMR]'; then
