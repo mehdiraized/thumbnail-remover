@@ -94,6 +94,44 @@ See per-size analytics including:
 6. Restore a batch if you need to reverse the cleanup
 7. Regenerate missing sizes after re-enabling any image sizes
 
+## FAQ
+
+### Does the plugin permanently delete thumbnails?
+
+No. Version 2 moves matching thumbnail files into plugin Trash first, so you can restore a cleanup batch later if needed.
+
+### What does Preview Cleanup show before I remove anything?
+
+Preview Cleanup runs a dry run and shows how many files match your current filters, which sizes are included, how much storage can be recovered, and how many orphan thumbnails were found.
+
+### What are orphan thumbnails?
+
+Orphan thumbnails are resized image files that still exist on disk but are no longer tracked in WordPress attachment metadata. The plugin can detect them during analysis and include them in preview and cleanup results.
+
+### How does unused media detection work?
+
+The plugin checks whether attachments appear to be used in featured images, parent attachment relationships, post or page content, and stored builder or meta content. These results are meant as "probably unused" signals and should still be reviewed manually.
+
+### Can I disable image sizes for future uploads without touching old files?
+
+Yes. You can disable selected registered image sizes for future uploads. This only stops new thumbnails from being generated. Existing files remain untouched until you preview and move them to Trash yourself.
+
+### Can I regenerate missing sizes after re-enabling a size?
+
+Yes. The regeneration tool can rebuild missing image sizes in batches, which is useful after re-enabling sizes or cleaning up incomplete media libraries.
+
+### Is the plugin safe for larger media libraries?
+
+It is designed to be safer on larger sites than one-click cleanup tools. Analysis, cleanup, and regeneration run in batches and show progress in the admin UI to reduce timeout issues.
+
+### Can I back up uploads before cleanup?
+
+Yes. You can create a zip backup for all uploads or only a selected year/month uploads folder before making cleanup changes.
+
+### Can I restore only one cleanup batch?
+
+Yes. Each cleanup run is stored as its own Trash batch, so you can restore a specific batch without undoing every previous cleanup action.
+
 ## Screenshots
 
 ### Library Analysis

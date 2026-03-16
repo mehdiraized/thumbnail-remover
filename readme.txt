@@ -63,11 +63,26 @@ Orphan thumbnails are files such as `image-300x300.jpg` that still exist on disk
 = How does unused media detection work? =
 The plugin scans image attachments and checks for usage in featured images, parent attachments, post content, and stored builder/meta content. The results are best treated as “probably unused” so you can review them manually.
 
+= Can I disable image sizes for future uploads without deleting old files? =
+Yes. The size-disable settings prevent selected image sizes from being generated for future uploads only. Existing thumbnails are not removed unless you explicitly preview and move them to Trash.
+
 = Can I regenerate missing sizes after enabling a size again? =
 Yes. Use the `Regenerate Missing Sizes` section to rebuild missing image sizes in batches.
 
+= Is the plugin suitable for larger media libraries? =
+Yes. Analysis, cleanup, and regeneration are processed in batches with visible progress to reduce timeout problems on larger WordPress sites.
+
 = Can I back up my files before cleanup? =
 Yes. You can create a zip backup for all uploads or for a selected year/month folder.
+
+= Can I restore only one cleanup batch instead of everything? =
+Yes. Each cleanup run creates its own Trash batch, so you can restore a specific batch independently.
+
+= Does the plugin detect thumbnails that exist on disk but not in metadata? =
+Yes. That is exactly what orphan thumbnail detection is for. These files are included in analysis and preview results so you can decide whether to move them to Trash.
+
+= Should I trust unused media results as a final delete list? =
+No. The plugin marks items as probably unused based on several WordPress relationships and content checks, but you should still review those results manually before broader media cleanup decisions.
 
 == Screenshots ==
 
