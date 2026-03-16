@@ -67,7 +67,7 @@ jobs:
           git push origin HEAD:main
 
       - name: Publish screenshots to WordPress.org SVN
-        if: ${{ secrets.WPORG_USERNAME != '' && secrets.WPORG_PASSWORD != '' }}
+        if: ${{ env.WPORG_USERNAME != '' && env.WPORG_PASSWORD != '' }}
         env:
           WPORG_USERNAME: ${{ secrets.WPORG_USERNAME }}
           WPORG_PASSWORD: ${{ secrets.WPORG_PASSWORD }}
