@@ -3,7 +3,7 @@
 **Contributors:** mehdiraized  
 **Tags:** thumbnails, media management, image optimization, cleanup, regenerate thumbnails  
 **Requires at least:** 5.0  
-**Tested up to:** 6.9.4  
+**Tested up to:** 6.9  
 **Stable tag:** 2.0.0  
 **Requires PHP:** 7.4  
 **License:** GPLv2 or later  
@@ -91,6 +91,24 @@ See per-size analytics including:
 5. Move matching thumbnails to **Trash**
 6. Restore a batch if you need to reverse the cleanup
 7. Regenerate missing sizes after re-enabling any image sizes
+
+## Screenshots
+
+### Library Analysis
+
+![Library Analysis](assets/screenshots/screenshot-1.png)
+
+### Preview and Move Thumbnails to Trash
+
+![Preview and Move Thumbnails to Trash](assets/screenshots/screenshot-2.png)
+
+### Trash and Restore
+
+![Trash and Restore](assets/screenshots/screenshot-3.png)
+
+### Regenerate Missing Sizes
+
+![Regenerate Missing Sizes](assets/screenshots/screenshot-4.png)
 
 ## Changelog
 
