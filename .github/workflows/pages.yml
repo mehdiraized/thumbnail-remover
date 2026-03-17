@@ -22,6 +22,8 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      PAGES_ENABLEMENT_TOKEN: ${{ secrets.PAGES_ENABLEMENT_TOKEN }}
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -40,20 +42,20 @@ jobs:
           cp assets/screenshots/screenshot-4.png public/screenshots/screenshot-4.png
 
       - name: Explain missing Pages configuration
-        if: ${{ secrets.PAGES_ENABLEMENT_TOKEN == '' }}
+        if: ${{ env.PAGES_ENABLEMENT_TOKEN == '' }}
         run: |
           echo "::notice::If the next step fails with 'Get Pages site failed', enable GitHub Pages in Settings > Pages and set the build source to GitHub Actions."
           echo "::notice::If you want this workflow to auto-enable Pages, add a PAT secret named PAGES_ENABLEMENT_TOKEN with Pages admin access for this repository."
 
       - name: Setup Pages with automatic enablement
-        if: ${{ secrets.PAGES_ENABLEMENT_TOKEN != '' }}
+        if: ${{ env.PAGES_ENABLEMENT_TOKEN != '' }}
         uses: actions/configure-pages@v5
         with:
           enablement: true
-          token: ${{ secrets.PAGES_ENABLEMENT_TOKEN }}
+          token: ${{ env.PAGES_ENABLEMENT_TOKEN }}
 
       - name: Setup Pages
-        if: ${{ secrets.PAGES_ENABLEMENT_TOKEN == '' }}
+        if: ${{ env.PAGES_ENABLEMENT_TOKEN == '' }}
         uses: actions/configure-pages@v5
 
       - name: Upload Pages artifact
