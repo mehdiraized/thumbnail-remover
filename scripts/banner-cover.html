@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Thumbnail Remover Banner</title>
+    <style>
+      :root {
+        --bg-top: #0d5ea8;
+        --bg-bottom: #012447;
+        --panel: rgba(7, 26, 48, 0.55);
+        --panel-strong: rgba(255, 255, 255, 0.14);
+        --line: rgba(255, 255, 255, 0.2);
+        --text: #f7fbff;
+        --muted: rgba(247, 251, 255, 0.76);
+        --accent: #ffb84d;
+        --accent-soft: #ffe2ad;
+        --success: #87f1c7;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1544px;
+        height: 500px;
+        overflow: hidden;
+        font-family: "Avenir Next", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.24), transparent 28%),
+          radial-gradient(circle at 76% 22%, rgba(255, 184, 77, 0.22), transparent 18%),
+          linear-gradient(135deg, var(--bg-top), var(--bg-bottom));
+        color: var(--text);
+      }
+
+      body::before,
+      body::after {
+        content: "";
+        position: absolute;
+        inset: auto;
+        border-radius: 999px;
+        opacity: 0.3;
+        pointer-events: none;
+      }
+
+      body::before {
+        width: 620px;
+        height: 620px;
+        right: -210px;
+        top: -280px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.24), transparent 68%);
+      }
+
+      body::after {
+        width: 440px;
+        height: 440px;
+        left: -170px;
+        bottom: -220px;
+        background: radial-gradient(circle, rgba(255, 184, 77, 0.28), transparent 70%);
+      }
+
+      .banner {
+        position: relative;
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 36px;
+        width: 100%;
+        height: 100%;
+        padding: 30px 34px;
+      }
+
+      .left {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        gap: 24px;
+        min-width: 0;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        width: fit-content;
+        padding: 10px 16px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--accent-soft);
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .eyebrow .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--success);
+        box-shadow: 0 0 0 8px rgba(135, 241, 199, 0.16);
+      }
+
+      h1 {
+        margin: 18px 0 10px;
+        max-width: 760px;
+        font-family: "Georgia", "Times New Roman", serif;
+        font-size: 58px;
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+      }
+
+      .subtitle {
+        max-width: 720px;
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 22px;
+        line-height: 1.4;
+      }
+
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        max-width: 860px;
+      }
+
+      .chip {
+        padding: 10px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.1);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        font-size: 18px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .metric {
+        padding: 14px 16px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 24px;
+        background: var(--panel);
+        backdrop-filter: blur(8px);
+      }
+
+      .metric strong {
+        display: block;
+        color: var(--accent-soft);
+        font-size: 28px;
+        line-height: 1;
+      }
+
+      .metric span {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.25;
+      }
+
+      .right {
+        position: relative;
+        min-width: 0;
+      }
+
+      .icon-card {
+        position: absolute;
+        top: 6px;
+        right: 28px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        width: 258px;
+        padding: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 26px;
+        background: rgba(255, 255, 255, 0.11);
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(8px);
+      }
+
+      .icon-card img {
+        width: 88px;
+        height: 88px;
+        border-radius: 22px;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+      }
+
+      .icon-card h2 {
+        margin: 0 0 6px;
+        font-size: 24px;
+        line-height: 1.05;
+      }
+
+      .icon-card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.35;
+      }
+
+      .shot {
+        position: absolute;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 18px 42px rgba(0, 0, 0, 0.3);
+      }
+
+      .shot img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .shot::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 18%);
+        pointer-events: none;
+      }
+
+      .shot-a {
+        left: 8px;
+        top: 78px;
+        width: 336px;
+        height: 224px;
+        transform: rotate(-5deg);
+      }
+
+      .shot-b {
+        right: 30px;
+        top: 138px;
+        width: 300px;
+        height: 180px;
+        transform: rotate(7deg);
+      }
+
+      .shot-c {
+        left: 90px;
+        bottom: 42px;
+        width: 364px;
+        height: 136px;
+        transform: rotate(-1.5deg);
+      }
+
+      .badge {
+        position: absolute;
+        left: 18px;
+        bottom: 18px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(1, 24, 46, 0.74);
+        color: var(--text);
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .badge .spark {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 184, 77, 0.2);
+        color: var(--accent);
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="banner">
+      <section class="left">
+        <div>
+          <div class="eyebrow">
+            <span class="dot"></span>
+            WordPress Media Cleanup
+          </div>
+          <h1>Thumbnail Remover and Size Manager</h1>
+          <p class="subtitle">
+            Analyze, preview, trash, restore, regenerate, and control image sizes without risking accidental thumbnail loss.
+          </p>
+          <div class="chips">
+            <div class="chip">Preview Before Cleanup</div>
+            <div class="chip">Trash and Restore</div>
+            <div class="chip">Batch Regeneration</div>
+            <div class="chip">Orphan Detection</div>
+            <div class="chip">Unused Media Signals</div>
+            <div class="chip">Per-Size Analytics</div>
+          </div>
+        </div>
+
+        <div class="summary">
+          <div class="metric">
+            <strong>Safer</strong>
+            <span>Dry run and recovery-first workflow</span>
+          </div>
+          <div class="metric">
+            <strong>Cleaner</strong>
+            <span>Find bloated, orphaned, and missing sizes</span>
+          </div>
+          <div class="metric">
+            <strong>Faster</strong>
+            <span>Process large media libraries in batches</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="right">
+        <div class="icon-card">
+          <img src="../svn/assets/icon-256x256.png" alt="Plugin icon">
+          <div>
+            <h2>Storage Back Under Control</h2>
+            <p>Purpose-built for WordPress site owners, developers, and agencies.</p>
+          </div>
+        </div>
+
+        <figure class="shot shot-a">
+          <img src="../assets/screenshots/screenshot-1.png" alt="Analytics view">
+          <div class="badge"><span class="spark">+</span> Per-size analytics</div>
+        </figure>
+
+        <figure class="shot shot-b">
+          <img src="../assets/screenshots/screenshot-2.png" alt="Preview cleanup">
+          <div class="badge"><span class="spark">+</span> Preview before trash</div>
+        </figure>
+
+        <figure class="shot shot-c">
+          <img src="../assets/screenshots/screenshot-3.png" alt="Trash and restore">
+          <div class="badge"><span class="spark">+</span> Restore when needed</div>
+        </figure>
+      </section>
+    </main>
+  </body>
+</html>

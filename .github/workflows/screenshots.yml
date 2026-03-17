@@ -73,11 +73,15 @@ jobs:
           git push origin HEAD:main
 
       - name: Publish screenshots to WordPress.org SVN
-        if: ${{ env.WPORG_USERNAME != '' && env.WPORG_PASSWORD != '' }}
         env:
           WPORG_USERNAME: ${{ secrets.WPORG_USERNAME }}
           WPORG_PASSWORD: ${{ secrets.WPORG_PASSWORD }}
         run: |
+          if [ -z "$WPORG_USERNAME" ] || [ -z "$WPORG_PASSWORD" ]; then
+            echo "Skipping WordPress.org SVN upload because WPORG_USERNAME/WPORG_PASSWORD is not configured."
+            exit 0
+          fi
+
           svn checkout --non-interactive --trust-server-cert-failures=unknown-ca --username "$WPORG_USERNAME" --password "$WPORG_PASSWORD" "https://plugins.svn.wordpress.org/${WPORG_PLUGIN_SLUG}" wporg-svn
           mkdir -p wporg-svn/assets
           if [ -d wporg-svn/assets/screenshots ]; then
@@ -91,7 +95,10 @@ jobs:
           svn add --force wporg-svn/assets/*
 
           if svn status wporg-svn | grep -q '^[AMR]'; then
-            svn commit wporg-svn -m "Refresh plugin screenshots after release" --non-interactive --trust-server-cert-failures=unknown-ca --username "$WPORG_USERNAME" --password "$WPORG_PASSWORD"
+            if ! svn commit wporg-svn -m "Refresh plugin screenshots after release" --non-interactive --trust-server-cert-failures=unknown-ca --username "$WPORG_USERNAME" --password "$WPORG_PASSWORD"; then
+              echo "::error::WordPress.org SVN commit failed. Anonymous checkout can still succeed, so this usually means WPORG_USERNAME/WPORG_PASSWORD is incorrect or the account does not have commit access to ${WPORG_PLUGIN_SLUG}."
+              exit 1
+            fi
           else
             echo "No SVN screenshot changes detected."
           fi
