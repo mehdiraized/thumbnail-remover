@@ -11,7 +11,11 @@
 
 Safely analyze, preview, trash, restore, regenerate, and manage WordPress thumbnails and image sizes.
 
-![Thumbnail Remover Banner](svn/assets/banner-1544x500.png)
+Landing page: [https://mehdiraized.github.io/thumbnail-remover/](https://mehdiraized.github.io/thumbnail-remover/)
+
+WordPress.org: [https://wordpress.org/plugins/thumbnail-remover/](https://wordpress.org/plugins/thumbnail-remover/)
+
+![Thumbnail Remover Banner](assets/banner-1544x500.png)
 
 ![Thumbnail Manager Library Analysis](assets/screenshots/screenshot-1.png)
 
