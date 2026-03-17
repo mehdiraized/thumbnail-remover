@@ -68,8 +68,9 @@ jobs:
 
       - name: Prepare Pages content
         run: |
-          mkdir -p public/screenshots
+          mkdir -p public/screenshots public/assets
           cp -R docs/. public/
+          cp assets/banner-1544x500.png public/assets/banner-1544x500.png
           cp assets/screenshots/screenshot-1.png public/screenshots/screenshot-1.png
           cp assets/screenshots/screenshot-2.png public/screenshots/screenshot-2.png
           cp assets/screenshots/screenshot-3.png public/screenshots/screenshot-3.png

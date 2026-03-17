@@ -20,9 +20,11 @@ html {
 
 body {
   margin: 0;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: "Plus Jakarta Sans", "Segoe UI", Arial, sans-serif;
   color: var(--text);
-  background: var(--bg);
+  background:
+    radial-gradient(circle at top center, rgba(22, 101, 52, 0.12), transparent 30%),
+    linear-gradient(180deg, #f9fbf7 0%, var(--bg) 100%);
   line-height: 1.7;
 }
 
@@ -42,7 +44,7 @@ img {
 }
 
 .container {
-  width: min(960px, calc(100% - 32px));
+  width: min(1120px, calc(100% - 32px));
   margin: 0 auto;
 }
 
@@ -71,11 +73,28 @@ img {
 }
 
 .hero {
-  padding: 56px 0 28px;
+  padding: 48px 0 24px;
 }
 
-.hero-inner {
+.hero-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 460px);
+  gap: 28px;
+  align-items: start;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 22px 60px rgba(20, 83, 45, 0.08);
+}
+
+.hero-copy {
   max-width: 760px;
+}
+
+.hero-media {
+  display: grid;
+  gap: 16px;
 }
 
 .kicker {
@@ -168,6 +187,17 @@ h3 {
   margin-bottom: 8px;
 }
 
+.hero-banner,
+.hero-screen,
+.shot-card img,
+.doc-image {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
 .section {
   padding: 28px 0;
 }
@@ -179,12 +209,13 @@ h3 {
 }
 
 .single-column {
-  max-width: 860px;
+  max-width: 980px;
 }
 
 .card-grid,
 .support-grid,
-.faq-list {
+.faq-list,
+.gallery-grid {
   display: grid;
   gap: 16px;
   margin-top: 20px;
@@ -195,10 +226,15 @@ h3 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.gallery-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .card,
 .promo-box,
 .faq-item,
-.text-link-card {
+.text-link-card,
+.shot-card {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 12px;
@@ -220,6 +256,16 @@ h3 {
   font-weight: 700;
 }
 
+.shot-card {
+  margin: 0;
+}
+
+.shot-card figcaption {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .docs-page {
   padding: 56px 0 72px;
 }
@@ -239,7 +285,6 @@ h3 {
 
 .doc-image {
   margin-top: 18px;
-  border: 1px solid var(--line);
 }
 
 .site-footer {
@@ -261,7 +306,9 @@ h3 {
 
 @media (max-width: 760px) {
   .card-grid,
-  .support-grid {
+  .support-grid,
+  .gallery-grid,
+  .hero-shell {
     grid-template-columns: 1fr;
   }
 
@@ -275,5 +322,9 @@ h3 {
 
   h1 {
     max-width: none;
+  }
+
+  .hero-shell {
+    padding: 20px;
   }
 }
