@@ -11,6 +11,8 @@
 
 Safely analyze, preview, trash, restore, regenerate, and manage WordPress thumbnails and image sizes.
 
+![Thumbnail Remover Banner](svn/assets/banner-1544x500.png)
+
 ![Thumbnail Manager Library Analysis](assets/screenshots/screenshot-1.png)
 
 ## Overview

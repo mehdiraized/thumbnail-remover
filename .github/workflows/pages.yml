@@ -5,6 +5,7 @@ on:
     branches:
       - main
     paths:
+      - README.md
       - docs/**
       - assets/screenshots/**
       - .github/workflows/pages.yml
