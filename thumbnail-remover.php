@@ -4,7 +4,7 @@ Plugin Name: Thumbnail Remover and Size Manager
 Plugin URI: https://github.com/mehdiraized/thumbnail-remover/
 Description: Analyze, preview, trash, restore, regenerate, and manage WordPress thumbnails and image sizes from one screen.
 Short Description: Safely manage WordPress thumbnails with preview, trash, restore, analytics, orphan cleanup, unused media detection, and regeneration.
-Version: 2.0.0
+Version: 2.1.0
 Author: Mehdi Rezaei
 Author URI: https://mehd.ir
 License: GPLv2 or later
@@ -17,10 +17,166 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'TRPL_VERSION', '2.0.0' );
+define( 'TRPL_VERSION', '2.1.0' );
 define( 'TRPL_DISABLED_SIZES_OPTION', 'trpl_disabled_image_sizes' );
 define( 'TRPL_JOBS_OPTION', 'trpl_jobs' );
+define( 'TRPL_SCHEDULE_SETTINGS_OPTION', 'trpl_schedule_settings' );
+define( 'TRPL_SCHEDULE_STATUS_OPTION', 'trpl_schedule_status' );
 define( 'TRPL_TRASH_DIRNAME', 'trpl-trash' );
+define( 'TRPL_SCHEDULE_EVENT_HOOK', 'trpl_run_scheduled_cleanup' );
+define( 'TRPL_SCHEDULE_PROCESS_HOOK', 'trpl_process_scheduled_cleanup' );
+
+function trpl_get_scheduled_cleanup_defaults() {
+	return array(
+		'enabled' => false,
+		'frequency' => 'weekly',
+		'sizes' => array(),
+		'folders' => array(),
+	);
+}
+
+function trpl_get_scheduled_cleanup_settings() {
+	$settings = get_option( TRPL_SCHEDULE_SETTINGS_OPTION, array() );
+
+	return wp_parse_args( is_array( $settings ) ? $settings : array(), trpl_get_scheduled_cleanup_defaults() );
+}
+
+function trpl_get_scheduled_cleanup_status() {
+	$status = get_option( TRPL_SCHEDULE_STATUS_OPTION, array() );
+
+	return wp_parse_args(
+		is_array( $status ) ? $status : array(),
+		array(
+			'state' => 'idle',
+			'message' => '',
+			'last_run' => 0,
+			'last_completed' => 0,
+			'last_job_id' => '',
+			'last_batch_id' => '',
+			'last_result' => array(),
+		)
+	);
+}
+
+function trpl_set_scheduled_cleanup_status( $updates ) {
+	$status = trpl_get_scheduled_cleanup_status();
+	$status = array_merge( $status, $updates );
+	update_option( TRPL_SCHEDULE_STATUS_OPTION, $status, false );
+
+	return $status;
+}
+
+function trpl_get_scheduled_cleanup_frequency_options() {
+	return array(
+		'daily' => __( 'Daily', 'thumbnail-remover' ),
+		'weekly' => __( 'Weekly', 'thumbnail-remover' ),
+		'monthly' => __( 'Monthly', 'thumbnail-remover' ),
+	);
+}
+
+function trpl_get_scheduled_cleanup_frequency_seconds( $frequency ) {
+	$map = array(
+		'daily' => DAY_IN_SECONDS,
+		'weekly' => WEEK_IN_SECONDS,
+		'monthly' => 30 * DAY_IN_SECONDS,
+	);
+
+	return isset( $map[ $frequency ] ) ? $map[ $frequency ] : WEEK_IN_SECONDS;
+}
+
+function trpl_sanitize_scheduled_cleanup_settings( $raw_settings ) {
+	$defaults = trpl_get_scheduled_cleanup_defaults();
+	$raw_settings = is_array( $raw_settings ) ? $raw_settings : array();
+	$valid_sizes = array_keys( trpl_get_all_image_sizes() );
+	$valid_folders = array_keys( trpl_get_upload_folders_with_count() );
+	$frequency_options = trpl_get_scheduled_cleanup_frequency_options();
+
+	$settings = array(
+		'enabled' => ! empty( $raw_settings['enabled'] ),
+		'frequency' => isset( $raw_settings['frequency'] ) ? sanitize_key( $raw_settings['frequency'] ) : $defaults['frequency'],
+		'sizes' => array_values( array_intersect( trpl_normalize_text_list( isset( $raw_settings['sizes'] ) ? $raw_settings['sizes'] : array() ), $valid_sizes ) ),
+		'folders' => array_values( array_intersect( trpl_normalize_text_list( isset( $raw_settings['folders'] ) ? $raw_settings['folders'] : array() ), $valid_folders ) ),
+	);
+
+	if ( ! isset( $frequency_options[ $settings['frequency'] ] ) ) {
+		$settings['frequency'] = $defaults['frequency'];
+	}
+
+	return $settings;
+}
+
+function trpl_register_cron_schedules( $schedules ) {
+	$schedules['weekly'] = array(
+		'interval' => WEEK_IN_SECONDS,
+		'display' => __( 'Once Weekly', 'thumbnail-remover' ),
+	);
+	$schedules['monthly'] = array(
+		'interval' => 30 * DAY_IN_SECONDS,
+		'display' => __( 'Once Monthly', 'thumbnail-remover' ),
+	);
+	$schedules['trpl_every_five_minutes'] = array(
+		'interval' => 5 * MINUTE_IN_SECONDS,
+		'display' => __( 'Every 5 Minutes', 'thumbnail-remover' ),
+	);
+
+	return $schedules;
+}
+add_filter( 'cron_schedules', 'trpl_register_cron_schedules' );
+
+function trpl_clear_scheduled_cleanup_events() {
+	wp_clear_scheduled_hook( TRPL_SCHEDULE_EVENT_HOOK );
+	wp_clear_scheduled_hook( TRPL_SCHEDULE_PROCESS_HOOK );
+}
+
+function trpl_clear_scheduled_cleanup_trigger() {
+	wp_clear_scheduled_hook( TRPL_SCHEDULE_EVENT_HOOK );
+}
+
+function trpl_sync_scheduled_cleanup_events( $settings = null ) {
+	if ( null === $settings ) {
+		$settings = trpl_get_scheduled_cleanup_settings();
+	}
+
+	$settings = wp_parse_args( $settings, trpl_get_scheduled_cleanup_defaults() );
+
+	if ( empty( $settings['enabled'] ) ) {
+		trpl_clear_scheduled_cleanup_trigger();
+
+		if ( ! trpl_get_scheduled_cleanup_job() ) {
+			wp_clear_scheduled_hook( TRPL_SCHEDULE_PROCESS_HOOK );
+		}
+
+		return;
+	}
+
+	trpl_clear_scheduled_cleanup_trigger();
+
+	if ( ! wp_next_scheduled( TRPL_SCHEDULE_EVENT_HOOK ) ) {
+		wp_schedule_event(
+			time() + trpl_get_scheduled_cleanup_frequency_seconds( $settings['frequency'] ),
+			$settings['frequency'],
+			TRPL_SCHEDULE_EVENT_HOOK
+		);
+	}
+}
+
+function trpl_schedule_cleanup_processor() {
+	if ( ! wp_next_scheduled( TRPL_SCHEDULE_PROCESS_HOOK ) ) {
+		wp_schedule_event( time() + MINUTE_IN_SECONDS, 'trpl_every_five_minutes', TRPL_SCHEDULE_PROCESS_HOOK );
+	}
+}
+
+function trpl_get_scheduled_cleanup_job() {
+	$jobs = get_option( TRPL_JOBS_OPTION, array() );
+
+	foreach ( $jobs as $job ) {
+		if ( isset( $job['type'], $job['source'] ) && 'delete' === $job['type'] && 'scheduled_cleanup' === $job['source'] ) {
+			return $job;
+		}
+	}
+
+	return null;
+}
 
 function trpl_enqueue_styles( $hook ) {
 	if ( 'tools_page_thumbnail-manager' !== $hook ) {
@@ -569,6 +725,31 @@ function trpl_delete_job( $job_id ) {
 	update_option( TRPL_JOBS_OPTION, $jobs, false );
 }
 
+function trpl_delete_directory( $path ) {
+	if ( ! file_exists( $path ) ) {
+		return true;
+	}
+
+	if ( is_file( $path ) || is_link( $path ) ) {
+		return wp_delete_file( $path );
+	}
+
+	$items = scandir( $path );
+	if ( false === $items ) {
+		return false;
+	}
+
+	foreach ( $items as $item ) {
+		if ( '.' === $item || '..' === $item ) {
+			continue;
+		}
+
+		trpl_delete_directory( trailingslashit( $path ) . $item );
+	}
+
+	return @rmdir( $path );
+}
+
 function trpl_calculate_progress( $processed, $total ) {
 	if ( $total <= 0 ) {
 		return 100;
@@ -667,6 +848,10 @@ function trpl_create_trash_batch() {
 
 function trpl_get_trash_manifest_path( $batch_id ) {
 	return trpl_get_trash_base_dir() . $batch_id . '/manifest.json';
+}
+
+function trpl_delete_trash_batch( $batch_id ) {
+	return trpl_delete_directory( trpl_get_trash_base_dir() . $batch_id );
 }
 
 function trpl_write_trash_manifest( $batch_id, $manifest ) {
@@ -1384,6 +1569,121 @@ function trpl_render_admin_ad_unit_placeholder( $label ) {
 	<?php
 }
 
+function trpl_run_scheduled_cleanup() {
+	$settings = trpl_get_scheduled_cleanup_settings();
+
+	if ( empty( $settings['enabled'] ) ) {
+		return;
+	}
+
+	$existing_job = trpl_get_scheduled_cleanup_job();
+	if ( $existing_job ) {
+		trpl_set_scheduled_cleanup_status(
+			array(
+				'state' => 'running',
+				'message' => __( 'Scheduled cleanup is already running.', 'thumbnail-remover' ),
+				'last_job_id' => $existing_job['id'],
+			)
+		);
+		trpl_schedule_cleanup_processor();
+		return;
+	}
+
+	$job = trpl_create_delete_job( $settings['sizes'], $settings['folders'] );
+	$job['source'] = 'scheduled_cleanup';
+	trpl_save_job( $job );
+
+	if ( empty( $job['total'] ) ) {
+		trpl_delete_job( $job['id'] );
+		trpl_delete_trash_batch( $job['trash_batch_id'] );
+		trpl_set_scheduled_cleanup_status(
+			array(
+				'state' => 'idle',
+				'message' => __( 'Scheduled cleanup ran, but no matching thumbnails were found.', 'thumbnail-remover' ),
+				'last_run' => time(),
+				'last_completed' => time(),
+				'last_job_id' => $job['id'],
+				'last_batch_id' => '',
+				'last_result' => array(
+					'moved' => 0,
+					'bytes' => 0,
+					'orphans' => 0,
+				),
+			)
+		);
+		return;
+	}
+
+	trpl_set_scheduled_cleanup_status(
+		array(
+			'state' => 'running',
+			'message' => __( 'Scheduled cleanup job created and queued for batch processing.', 'thumbnail-remover' ),
+			'last_run' => time(),
+			'last_job_id' => $job['id'],
+			'last_batch_id' => $job['trash_batch_id'],
+			'last_result' => array(),
+		)
+	);
+	trpl_schedule_cleanup_processor();
+}
+add_action( TRPL_SCHEDULE_EVENT_HOOK, 'trpl_run_scheduled_cleanup' );
+
+function trpl_process_scheduled_cleanup() {
+	$job = trpl_get_scheduled_cleanup_job();
+
+	if ( ! $job ) {
+		wp_clear_scheduled_hook( TRPL_SCHEDULE_PROCESS_HOOK );
+		return;
+	}
+
+	$is_complete = trpl_process_delete_job( $job );
+
+	if ( $is_complete ) {
+		trpl_delete_job( $job['id'] );
+		trpl_set_scheduled_cleanup_status(
+			array(
+				'state' => 'idle',
+				'message' => __( 'Scheduled cleanup completed successfully.', 'thumbnail-remover' ),
+				'last_run' => time(),
+				'last_completed' => time(),
+				'last_job_id' => $job['id'],
+				'last_batch_id' => $job['trash_batch_id'],
+				'last_result' => $job['result'],
+			)
+		);
+		wp_clear_scheduled_hook( TRPL_SCHEDULE_PROCESS_HOOK );
+		return;
+	}
+
+	trpl_save_job( $job );
+	trpl_set_scheduled_cleanup_status(
+		array(
+			'state' => 'running',
+			'message' => sprintf(
+				/* translators: 1: processed files count, 2: total files count. */
+				__( 'Scheduled cleanup is processing %1$d of %2$d files.', 'thumbnail-remover' ),
+				(int) $job['processed'],
+				(int) $job['total']
+			),
+			'last_job_id' => $job['id'],
+			'last_batch_id' => $job['trash_batch_id'],
+			'last_result' => $job['result'],
+		)
+	);
+}
+add_action( TRPL_SCHEDULE_PROCESS_HOOK, 'trpl_process_scheduled_cleanup' );
+
+function trpl_activate_plugin() {
+	trpl_sync_scheduled_cleanup_events( trpl_get_scheduled_cleanup_settings() );
+}
+
+function trpl_deactivate_plugin() {
+	trpl_clear_scheduled_cleanup_events();
+}
+
+register_activation_hook( __FILE__, 'trpl_activate_plugin' );
+register_deactivation_hook( __FILE__, 'trpl_deactivate_plugin' );
+
 function trpl_admin_page() {
 	if ( isset( $_POST['thumbnail_manager_nonce'] ) ) {
 		$nonce = sanitize_text_field( wp_unslash( $_POST['thumbnail_manager_nonce'] ) );
@@ -1393,11 +1693,22 @@ function trpl_admin_page() {
 			trpl_admin_notice( __( 'Image size settings updated successfully.', 'thumbnail-remover' ) );
 		}
 
+		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) && isset( $_POST['save_scheduled_cleanup'] ) ) {
+			$scheduled_cleanup_settings = trpl_sanitize_scheduled_cleanup_settings(
+				isset( $_POST['scheduled_cleanup'] ) ? wp_unslash( $_POST['scheduled_cleanup'] ) : array()
+			);
+			update_option( TRPL_SCHEDULE_SETTINGS_OPTION, $scheduled_cleanup_settings, false );
+			trpl_sync_scheduled_cleanup_events( $scheduled_cleanup_settings );
+			trpl_admin_notice( __( 'Scheduled cleanup settings updated successfully.', 'thumbnail-remover' ) );
+		}
 	}
 
 	$registered_sizes = trpl_get_all_image_sizes();
 	$folders = trpl_get_upload_folders_with_count();
 	$disabled_sizes = trpl_normalize_disabled_sizes( get_option( TRPL_DISABLED_SIZES_OPTION, array() ) );
+	$scheduled_cleanup_settings = trpl_get_scheduled_cleanup_settings();
+	$scheduled_cleanup_status = trpl_get_scheduled_cleanup_status();
+	$next_scheduled_cleanup = wp_next_scheduled( TRPL_SCHEDULE_EVENT_HOOK );
 	$available_dates = trpl_get_available_dates();
 	$trash_batches = trpl_get_trash_batches();
 	$ad_slot_definitions = trpl_get_admin_ad_slot_definitions();
@@ -1431,6 +1742,80 @@ function trpl_admin_page() {
 					</ul>
 					<p><strong><?php esc_html_e( 'Note:', 'thumbnail-remover' ); ?></strong> <?php esc_html_e( 'Disabling a size prevents future generation only. Existing files stay untouched until you move them to Trash below.', 'thumbnail-remover' ); ?></p>
 					<p><input type="submit" name="disable_sizes" class="button button-primary" value="<?php esc_attr_e( 'Save Changes', 'thumbnail-remover' ); ?>"></p>
+				</form>
+			</div>
+
+				<div class="wrt-box">
+				<h2><?php esc_html_e( 'Scheduled Cleanup', 'thumbnail-remover' ); ?></h2>
+				<p><?php esc_html_e( 'Automatically move matching thumbnail files into plugin Trash on a recurring WP-Cron schedule. Scheduled runs reuse the same restore workflow as manual cleanup.', 'thumbnail-remover' ); ?></p>
+				<form method="post">
+					<?php wp_nonce_field( 'thumbnail-manager-nonce', 'thumbnail_manager_nonce' ); ?>
+					<p>
+						<label>
+							<input type="checkbox" name="scheduled_cleanup[enabled]" value="1" <?php checked( ! empty( $scheduled_cleanup_settings['enabled'] ) ); ?>>
+							<?php esc_html_e( 'Enable scheduled cleanup', 'thumbnail-remover' ); ?>
+						</label>
+					</p>
+
+					<p>
+						<label for="trpl-scheduled-frequency"><strong><?php esc_html_e( 'Frequency', 'thumbnail-remover' ); ?></strong></label><br>
+						<select id="trpl-scheduled-frequency" name="scheduled_cleanup[frequency]">
+							<?php foreach ( trpl_get_scheduled_cleanup_frequency_options() as $frequency_value => $frequency_label ) : ?>
+								<option value="<?php echo esc_attr( $frequency_value ); ?>" <?php selected( $scheduled_cleanup_settings['frequency'], $frequency_value ); ?>><?php echo esc_html( $frequency_label ); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</p>
+
+					<h3><?php esc_html_e( 'Scheduled size scope', 'thumbnail-remover' ); ?></h3>
+					<ul class="wrt-list">
+						<?php trpl_render_checkbox_list( $registered_sizes, 'scheduled_cleanup[sizes]', $scheduled_cleanup_settings['sizes'], 'trpl_format_size_label' ); ?>
+					</ul>
+
+					<h3><?php esc_html_e( 'Scheduled folder scope', 'thumbnail-remover' ); ?></h3>
+					<ul class="wrt-list">
+						<?php trpl_render_checkbox_list( $folders, 'scheduled_cleanup[folders]', $scheduled_cleanup_settings['folders'], 'trpl_format_folder_label' ); ?>
+					</ul>
+
+					<p class="description"><?php esc_html_e( 'Leave sizes or folders empty to include all matching thumbnails in that dimension. Runs depend on normal WordPress cron traffic.', 'thumbnail-remover' ); ?></p>
+
+					<div class="trpl-status-grid">
+						<div class="trpl-status-card">
+							<strong><?php esc_html_e( 'Current status', 'thumbnail-remover' ); ?></strong>
+							<span><?php echo esc_html( ucfirst( (string) $scheduled_cleanup_status['state'] ) ); ?></span>
+							<?php if ( ! empty( $scheduled_cleanup_status['message'] ) ) : ?>
+								<small><?php echo esc_html( $scheduled_cleanup_status['message'] ); ?></small>
+							<?php endif; ?>
+						</div>
+						<div class="trpl-status-card">
+							<strong><?php esc_html_e( 'Next scheduled run', 'thumbnail-remover' ); ?></strong>
+							<span><?php echo $next_scheduled_cleanup ? esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $next_scheduled_cleanup ) ) : esc_html__( 'Not scheduled', 'thumbnail-remover' ); ?></span>
+						</div>
+						<div class="trpl-status-card">
+							<strong><?php esc_html_e( 'Last completed run', 'thumbnail-remover' ); ?></strong>
+							<span><?php echo ! empty( $scheduled_cleanup_status['last_completed'] ) ? esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $scheduled_cleanup_status['last_completed'] ) ) : esc_html__( 'Never', 'thumbnail-remover' ); ?></span>
+						</div>
+						<div class="trpl-status-card">
+							<strong><?php esc_html_e( 'Last result', 'thumbnail-remover' ); ?></strong>
+							<?php if ( ! empty( $scheduled_cleanup_status['last_result'] ) ) : ?>
+								<span>
+									<?php
+									echo esc_html(
+										sprintf(
+											/* translators: 1: moved files count, 2: size string. */
+											__( '%1$d file(s), %2$s', 'thumbnail-remover' ),
+											isset( $scheduled_cleanup_status['last_result']['moved'] ) ? (int) $scheduled_cleanup_status['last_result']['moved'] : 0,
+											size_format( isset( $scheduled_cleanup_status['last_result']['bytes'] ) ? (int) $scheduled_cleanup_status['last_result']['bytes'] : 0 )
+										)
+									);
+									?>
+								</span>
+							<?php else : ?>
+								<span><?php esc_html_e( 'No scheduled cleanup has finished yet.', 'thumbnail-remover' ); ?></span>
+							<?php endif; ?>
+						</div>
+					</div>
+
+					<p><input type="submit" name="save_scheduled_cleanup" class="button button-primary" value="<?php esc_attr_e( 'Save Scheduled Cleanup', 'thumbnail-remover' ); ?>"></p>
 				</form>
 			</div>
 

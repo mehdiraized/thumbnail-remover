@@ -4,12 +4,12 @@
 **Tags:** thumbnails, media management, image optimization, cleanup, regenerate thumbnails  
 **Requires at least:** 5.0  
 **Tested up to:** 6.9  
-**Stable tag:** 2.0.0  
+**Stable tag:** 2.1.0  
 **Requires PHP:** 7.4  
 **License:** GPLv2 or later  
 **License URI:** https://www.gnu.org/licenses/gpl-2.0.html
 
-Safely analyze, preview, trash, restore, regenerate, and manage WordPress thumbnails and image sizes.
+Safely analyze, preview, trash, restore, schedule, regenerate, and manage WordPress thumbnails and image sizes.
 
 Landing page: [https://mehdiraized.github.io/thumbnail-remover/](https://mehdiraized.github.io/thumbnail-remover/)
 
@@ -34,6 +34,7 @@ Instead of removing thumbnails with a single irreversible step, v2 adds:
 - Per-size analytics
 - Existing image-size disable controls
 - Zip backups for uploads
+- Scheduled cleanup with configurable frequency and scope
 
 ## Main Features
 
@@ -53,6 +54,10 @@ Matching thumbnails are moved into plugin Trash instead of being deleted permane
 ### Batch Processing
 
 Large scans, cleanup jobs, and regeneration jobs run in batches and report progress in the interface to reduce timeout problems on larger sites.
+
+### Scheduled Cleanup
+
+Use the scheduled cleanup section to let WP-Cron move matching thumbnail files into plugin Trash automatically on a daily, weekly, or monthly cadence. You can scope scheduled runs to specific registered sizes and upload folders, and scheduled deletions remain restorable through the same Trash batches used by manual cleanup.
 
 ### Unused Media Detection
 
@@ -89,6 +94,7 @@ See per-size analytics including:
 2. Activate the plugin.
 3. Open `Tools > Thumbnail Manager`.
 4. Run a full analysis before your first cleanup.
+5. Configure scheduled cleanup if you want recurring maintenance.
 
 ## Recommended Workflow
 
@@ -138,6 +144,10 @@ Yes. You can create a zip backup for all uploads or only a selected year/month u
 
 Yes. Each cleanup run is stored as its own Trash batch, so you can restore a specific batch without undoing every previous cleanup action.
 
+### Does scheduled cleanup delete files permanently?
+
+No. Scheduled cleanup also moves matching files into plugin Trash first. The main difference is that the job is created by WP-Cron instead of a manual button click.
+
 ## Screenshots
 
 ### Library Analysis
@@ -157,6 +167,13 @@ Yes. Each cleanup run is stored as its own Trash batch, so you can restore a spe
 ![Regenerate Missing Sizes](assets/screenshots/screenshot-4.png)
 
 ## Changelog
+
+### 2.1.0
+
+- Added WP-Cron scheduled cleanup with daily, weekly, and monthly frequency options
+- Added scheduled cleanup scope controls for image sizes and upload folders
+- Added scheduled cleanup run status, next-run visibility, and last-result summaries in the admin UI
+- Kept scheduled cleanup on the same Trash-and-Restore workflow as manual cleanup
 
 ### 2.0.0
 
