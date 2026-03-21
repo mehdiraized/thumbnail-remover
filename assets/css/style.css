@@ -199,6 +199,37 @@
 	word-break: break-word;
 }
 
+.trpl-status-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 12px;
+	margin: 20px 0;
+}
+
+.trpl-status-card {
+	padding: 14px;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	background: #f8fbff;
+}
+
+.trpl-status-card strong,
+.trpl-status-card span,
+.trpl-status-card small {
+	display: block;
+}
+
+.trpl-status-card span {
+	margin-top: 6px;
+	font-weight: 600;
+	color: #1d2327;
+}
+
+.trpl-status-card small {
+	margin-top: 6px;
+	color: #646970;
+}
+
 @media (max-width: 1100px) {
 	.trpl-admin-layout {
 		grid-template-columns: 1fr;
@@ -227,6 +258,10 @@
 	}
 
 	.trpl-cards {
+		grid-template-columns: 1fr;
+	}
+
+	.trpl-status-grid {
 		grid-template-columns: 1fr;
 	}
 }

@@ -4,16 +4,16 @@ Donate link: https://www.buymeacoffee.com/mehdiraized
 Tags: thumbnails, media management, image optimization, cleanup, regenerate thumbnails
 Requires at least: 5.0
 Tested up to: 6.9
-Stable tag: 2.0.0
+Stable tag: 2.1.0
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Safely analyze, preview, trash, restore, regenerate, and manage WordPress thumbnails and image sizes.
+Safely analyze, preview, trash, restore, schedule, regenerate, and manage WordPress thumbnails and image sizes.
 
 == Description ==
 
-Thumbnail Remover and Size Manager 2.0 is a safer and more complete media-maintenance workflow for WordPress.
+Thumbnail Remover and Size Manager 2.1 is a safer and more complete media-maintenance workflow for WordPress.
 
 Instead of deleting thumbnails blindly, the plugin now helps you:
 
@@ -27,6 +27,7 @@ Instead of deleting thumbnails blindly, the plugin now helps you:
 * Review per-size analytics including file counts, storage usage, missing sizes, and orphan counts
 * Disable selected image sizes for future uploads
 * Create zip backups for all uploads or a specific year/month folder
+* Schedule recurring cleanup runs with configurable frequency, size scope, and folder scope
 
 This release is built for site owners, developers, agencies, and anyone trying to reduce thumbnail bloat without risking accidental data loss.
 
@@ -41,6 +42,7 @@ This release is built for site owners, developers, agencies, and anyone trying t
 * Per-size analytics dashboard
 * Image size disable controls for future uploads
 * Media backup export to zip
+* Scheduled cleanup powered by WP-Cron
 
 == Installation ==
 
@@ -48,6 +50,7 @@ This release is built for site owners, developers, agencies, and anyone trying t
 2. Activate the plugin through the `Plugins` screen in WordPress.
 3. Go to `Tools > Thumbnail Manager`.
 4. Run a full analysis before your first cleanup so you can review thumbnail usage, orphan counts, and unused media signals.
+5. Configure scheduled cleanup if you want recurring maintenance.
 
 == Frequently Asked Questions ==
 
@@ -78,6 +81,9 @@ Yes. You can create a zip backup for all uploads or for a selected year/month fo
 = Can I restore only one cleanup batch instead of everything? =
 Yes. Each cleanup run creates its own Trash batch, so you can restore a specific batch independently.
 
+= Does scheduled cleanup delete files permanently? =
+No. Scheduled cleanup uses the same plugin Trash flow as manual cleanup, so matching thumbnails can still be restored later.
+
 = Does the plugin detect thumbnails that exist on disk but not in metadata? =
 Yes. That is exactly what orphan thumbnail detection is for. These files are included in analysis and preview results so you can decide whether to move them to Trash.
 
@@ -92,6 +98,12 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 4. Batch regeneration of missing image sizes
 
 == Changelog ==
+
+= 2.1.0 =
+* Added WP-Cron scheduled cleanup with daily, weekly, and monthly frequency options
+* Added scheduled cleanup scope controls for image sizes and upload folders
+* Added scheduled cleanup status, next-run visibility, and last-result summaries in the admin UI
+* Kept scheduled cleanup on the same Trash and Restore workflow as manual cleanup
 
 = 2.0.0 =
 * Added dry-run preview before cleanup
@@ -115,6 +127,9 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 * Bug fixes and performance improvements
 
 == Upgrade Notice ==
+
+= 2.1.0 =
+This update adds WP-Cron scheduled cleanup with configurable scope while keeping the existing Trash and Restore safety workflow.
 
 = 2.0.0 =
 This major update introduces preview before cleanup, Trash and Restore, batch processing, unused media detection, orphan thumbnail detection, missing-size regeneration, and per-size analytics.
