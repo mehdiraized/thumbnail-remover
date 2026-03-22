@@ -3,6 +3,7 @@ name: Plugin Screenshots
 on:
   workflow_run:
     workflows:
+      - Auto Release From Version
       - GitHub Release
     types:
       - completed
