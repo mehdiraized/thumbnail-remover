@@ -36,11 +36,7 @@ jobs:
       - name: Build plugin zip
         run: |
           mkdir -p build/thumbnail-remover
-          rsync -av ./ build/thumbnail-remover/ \
-            --exclude '.git/' \
-            --exclude '.github/' \
-            --exclude 'build/' \
-            --exclude '.DS_Store'
+          rsync -av ./ build/thumbnail-remover/ --exclude-from=.distignore
           cd build
           zip -r thumbnail-remover.zip thumbnail-remover
 

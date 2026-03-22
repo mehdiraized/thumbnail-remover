@@ -18,5 +18,12 @@ jobs:
       - name: Get latest code
         uses: actions/checkout@v4
 
+      - name: Build clean plugin directory
+        run: |
+          mkdir -p build/thumbnail-remover
+          rsync -av ./ build/thumbnail-remover/ --exclude-from=.distignore
+
       - name: Run plugin check
         uses: WordPress/plugin-check-action@v1
+        with:
+          build-dir: ./build/thumbnail-remover

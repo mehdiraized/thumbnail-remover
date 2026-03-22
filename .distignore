@@ -1,0 +1,12 @@
+.git/
+.github/
+.wp-env.json
+.distignore
+node_modules/
+output/
+scripts/
+svn/
+docs/
+package.json
+package-lock.json
+wp-env-screenshots.json

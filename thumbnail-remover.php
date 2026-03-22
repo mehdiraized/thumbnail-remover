@@ -178,6 +178,33 @@ function trpl_get_scheduled_cleanup_job() {
 	return null;
 }
 
+function trpl_get_post_array_input( $key ) {
+	$value = filter_input(
+		INPUT_POST,
+		$key,
+		FILTER_DEFAULT,
+		array(
+			'flags' => FILTER_REQUIRE_ARRAY,
+		)
+	);
+
+	if ( ! is_array( $value ) ) {
+		return array();
+	}
+
+	return wp_unslash( $value );
+}
+
+function trpl_get_post_scalar_input( $key, $default = '' ) {
+	$value = filter_input( INPUT_POST, $key, FILTER_UNSAFE_RAW );
+
+	if ( null === $value || false === $value ) {
+		return $default;
+	}
+
+	return is_string( $value ) ? wp_unslash( $value ) : $default;
+}
+
 function trpl_enqueue_styles( $hook ) {
 	if ( 'tools_page_thumbnail-manager' !== $hook ) {
 		return;
@@ -582,6 +609,8 @@ function trpl_build_regeneration_attachment_ids( $selected_folders ) {
 }
 
 function trpl_is_attachment_used( $attachment_id ) {
+	global $wpdb;
+
 	$attachment = get_post( $attachment_id );
 	if ( ! $attachment ) {
 		return false;
@@ -591,19 +620,14 @@ function trpl_is_attachment_used( $attachment_id ) {
 		return true;
 	}
 
-	$featured_usage = get_posts(
-		array(
-			'post_type' => trpl_get_searchable_post_types(),
-			'post_status' => trpl_get_usage_query_statuses(),
-			'posts_per_page' => 1,
-			'fields' => 'ids',
-			'meta_key' => '_thumbnail_id',
-			'meta_value' => (string) $attachment_id,
-			'no_found_rows' => true,
+	$featured_usage = (int) $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = '_thumbnail_id' AND meta_value = %s",
+			(string) $attachment_id
 		)
 	);
 
-	if ( ! empty( $featured_usage ) ) {
+	if ( $featured_usage > 0 ) {
 		return true;
 	}
 
@@ -617,38 +641,27 @@ function trpl_is_attachment_used( $attachment_id ) {
 	);
 
 	foreach ( array_unique( $needles ) as $needle ) {
-		$content_usage = get_posts(
-			array(
-				'post_type' => trpl_get_searchable_post_types(),
-				'post_status' => trpl_get_usage_query_statuses(),
-				'posts_per_page' => 1,
-				'fields' => 'ids',
-				's' => $needle,
-				'no_found_rows' => true,
+		$like = '%' . $wpdb->esc_like( $needle ) . '%';
+
+		$content_usage = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type != 'attachment' AND post_status NOT IN ('trash', 'auto-draft') AND post_content LIKE %s",
+				$like
 			)
 		);
 
-		if ( ! empty( $content_usage ) ) {
+		if ( $content_usage > 0 ) {
 			return true;
 		}
 
-		$builder_usage = get_posts(
-			array(
-				'post_type' => trpl_get_searchable_post_types(),
-				'post_status' => trpl_get_usage_query_statuses(),
-				'posts_per_page' => 1,
-				'fields' => 'ids',
-				'meta_query' => array(
-					array(
-						'value' => $needle,
-						'compare' => 'LIKE',
-					),
-				),
-				'no_found_rows' => true,
+		$builder_usage = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE p.post_type != 'attachment' AND p.post_status NOT IN ('trash', 'auto-draft') AND pm.meta_value LIKE %s",
+				$like
 			)
 		);
 
-		if ( ! empty( $builder_usage ) ) {
+		if ( $builder_usage > 0 ) {
 			return true;
 		}
 	}
@@ -726,28 +739,16 @@ function trpl_delete_job( $job_id ) {
 }
 
 function trpl_delete_directory( $path ) {
-	if ( ! file_exists( $path ) ) {
-		return true;
-	}
-
-	if ( is_file( $path ) || is_link( $path ) ) {
-		return wp_delete_file( $path );
-	}
-
-	$items = scandir( $path );
-	if ( false === $items ) {
+	$filesystem = trpl_get_filesystem();
+	if ( ! $filesystem ) {
 		return false;
 	}
 
-	foreach ( $items as $item ) {
-		if ( '.' === $item || '..' === $item ) {
-			continue;
-		}
-
-		trpl_delete_directory( trailingslashit( $path ) . $item );
+	if ( ! $filesystem->exists( $path ) ) {
+		return true;
 	}
 
-	return @rmdir( $path );
+	return (bool) $filesystem->delete( $path, true );
 }
 
 function trpl_calculate_progress( $processed, $total ) {
@@ -855,17 +856,28 @@ function trpl_delete_trash_batch( $batch_id ) {
 }
 
 function trpl_write_trash_manifest( $batch_id, $manifest ) {
+	$filesystem = trpl_get_filesystem();
+	if ( ! $filesystem ) {
+		return false;
+	}
+
 	trpl_ensure_directory( dirname( trpl_get_trash_manifest_path( $batch_id ) ) );
-	file_put_contents( trpl_get_trash_manifest_path( $batch_id ), wp_json_encode( $manifest, JSON_PRETTY_PRINT ) );
+
+	return (bool) $filesystem->put_contents(
+		trpl_get_trash_manifest_path( $batch_id ),
+		wp_json_encode( $manifest, JSON_PRETTY_PRINT ),
+		FS_CHMOD_FILE
+	);
 }
 
 function trpl_read_trash_manifest( $batch_id ) {
+	$filesystem = trpl_get_filesystem();
 	$path = trpl_get_trash_manifest_path( $batch_id );
-	if ( ! file_exists( $path ) ) {
+	if ( ! $filesystem || ! $filesystem->exists( $path ) ) {
 		return null;
 	}
 
-	$manifest = json_decode( file_get_contents( $path ), true );
+	$manifest = json_decode( $filesystem->get_contents( $path ), true );
 	return is_array( $manifest ) ? $manifest : null;
 }
 
@@ -912,7 +924,7 @@ function trpl_get_trash_batches() {
 
 	$batches = array();
 	foreach ( glob( $trash_dir . '*/manifest.json' ) as $manifest_path ) {
-		$manifest = json_decode( file_get_contents( $manifest_path ), true );
+		$manifest = json_decode( (string) file_get_contents( $manifest_path ), true );
 		if ( is_array( $manifest ) ) {
 			$batches[] = $manifest;
 		}
@@ -1185,8 +1197,8 @@ function trpl_ajax_preview_delete() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
 	trpl_require_manage_options();
 
-	$raw_sizes = isset( $_POST['sizes'] ) ? wp_unslash( $_POST['sizes'] ) : array();
-	$raw_folders = isset( $_POST['folders'] ) ? wp_unslash( $_POST['folders'] ) : array();
+	$raw_sizes = trpl_get_post_array_input( 'sizes' );
+	$raw_folders = trpl_get_post_array_input( 'folders' );
 	$selected_sizes = trpl_normalize_text_list( $raw_sizes );
 	$selected_folders = trpl_normalize_text_list( $raw_folders );
 	$candidates = trpl_build_removal_candidates( $selected_sizes, $selected_folders );
@@ -1210,7 +1222,7 @@ function trpl_ajax_start_analysis() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
 	trpl_require_manage_options();
 
-	$selected_folders = isset( $_POST['folders'] ) ? trpl_normalize_text_list( $_POST['folders'] ) : array();
+	$selected_folders = trpl_normalize_text_list( trpl_get_post_array_input( 'folders' ) );
 	$job = trpl_create_analysis_job( $selected_folders );
 
 	wp_send_json_success(
@@ -1258,8 +1270,8 @@ function trpl_ajax_start_delete() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
 	trpl_require_manage_options();
 
-	$selected_sizes = isset( $_POST['sizes'] ) ? trpl_normalize_text_list( $_POST['sizes'] ) : array();
-	$selected_folders = isset( $_POST['folders'] ) ? trpl_normalize_text_list( $_POST['folders'] ) : array();
+	$selected_sizes = trpl_normalize_text_list( trpl_get_post_array_input( 'sizes' ) );
+	$selected_folders = trpl_normalize_text_list( trpl_get_post_array_input( 'folders' ) );
 	$job = trpl_create_delete_job( $selected_sizes, $selected_folders );
 
 	wp_send_json_success(
@@ -1322,8 +1334,8 @@ function trpl_ajax_start_regenerate() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
 	trpl_require_manage_options();
 
-	$selected_sizes = isset( $_POST['sizes'] ) ? trpl_normalize_text_list( $_POST['sizes'] ) : array();
-	$selected_folders = isset( $_POST['folders'] ) ? trpl_normalize_text_list( $_POST['folders'] ) : array();
+	$selected_sizes = trpl_normalize_text_list( trpl_get_post_array_input( 'sizes' ) );
+	$selected_folders = trpl_normalize_text_list( trpl_get_post_array_input( 'folders' ) );
 	$job = trpl_create_regenerate_job( $selected_sizes, $selected_folders );
 
 	wp_send_json_success(
@@ -1685,17 +1697,18 @@ register_activation_hook( __FILE__, 'trpl_activate_plugin' );
 register_deactivation_hook( __FILE__, 'trpl_deactivate_plugin' );
 
 function trpl_admin_page() {
-	if ( isset( $_POST['thumbnail_manager_nonce'] ) ) {
-		$nonce = sanitize_text_field( wp_unslash( $_POST['thumbnail_manager_nonce'] ) );
-		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) && isset( $_POST['disable_sizes'] ) ) {
-			$sizes_to_disable = isset( $_POST['disable'] ) ? trpl_normalize_disabled_sizes( $_POST['disable'] ) : array();
+	$nonce = sanitize_text_field( trpl_get_post_scalar_input( 'thumbnail_manager_nonce' ) );
+
+	if ( '' !== $nonce ) {
+		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) && '' !== trpl_get_post_scalar_input( 'disable_sizes' ) ) {
+			$sizes_to_disable = trpl_normalize_disabled_sizes( trpl_get_post_array_input( 'disable' ) );
 			update_option( TRPL_DISABLED_SIZES_OPTION, $sizes_to_disable );
 			trpl_admin_notice( __( 'Image size settings updated successfully.', 'thumbnail-remover' ) );
 		}
 
-		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) && isset( $_POST['save_scheduled_cleanup'] ) ) {
+		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) && '' !== trpl_get_post_scalar_input( 'save_scheduled_cleanup' ) ) {
 			$scheduled_cleanup_settings = trpl_sanitize_scheduled_cleanup_settings(
-				isset( $_POST['scheduled_cleanup'] ) ? wp_unslash( $_POST['scheduled_cleanup'] ) : array()
+				trpl_get_post_array_input( 'scheduled_cleanup' )
 			);
 			update_option( TRPL_SCHEDULE_SETTINGS_OPTION, $scheduled_cleanup_settings, false );
 			trpl_sync_scheduled_cleanup_events( $scheduled_cleanup_settings );
