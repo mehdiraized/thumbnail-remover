@@ -4,7 +4,7 @@ Plugin Name: Thumbnail Remover and Size Manager
 Plugin URI: https://github.com/mehdiraized/thumbnail-remover/
 Description: Analyze, preview, trash, restore, regenerate, and manage WordPress thumbnails and image sizes from one screen.
 Short Description: Safely manage WordPress thumbnails with preview, trash, restore, analytics, orphan cleanup, unused media detection, and regeneration.
-Version: 2.1.0
+Version: 2.2.0
 Author: Mehdi Rezaei
 Author URI: https://mehd.ir
 License: GPLv2 or later
@@ -17,9 +17,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'TRPL_VERSION', '2.1.0' );
+define( 'TRPL_VERSION', '2.2.0' );
 define( 'TRPL_DISABLED_SIZES_OPTION', 'trpl_disabled_image_sizes' );
 define( 'TRPL_JOBS_OPTION', 'trpl_jobs' );
+define( 'TRPL_ACTIVITY_LOG_OPTION', 'trpl_activity_log' );
 define( 'TRPL_SCHEDULE_SETTINGS_OPTION', 'trpl_schedule_settings' );
 define( 'TRPL_SCHEDULE_STATUS_OPTION', 'trpl_schedule_status' );
 define( 'TRPL_TRASH_DIRNAME', 'trpl-trash' );
@@ -203,6 +204,229 @@ function trpl_get_post_scalar_input( $key, $default = '' ) {
 	}
 
 	return is_string( $value ) ? wp_unslash( $value ) : $default;
+}
+
+function trpl_get_activity_log_limit() {
+	return 100;
+}
+
+function trpl_get_activity_log() {
+	$entries = get_option( TRPL_ACTIVITY_LOG_OPTION, array() );
+	return is_array( $entries ) ? $entries : array();
+}
+
+function trpl_normalize_activity_log_entry( $entry ) {
+	$entry = is_array( $entry ) ? $entry : array();
+
+	return array(
+		'timestamp' => isset( $entry['timestamp'] ) ? (int) $entry['timestamp'] : time(),
+		'action' => isset( $entry['action'] ) ? sanitize_key( $entry['action'] ) : 'system',
+		'status' => isset( $entry['status'] ) ? sanitize_key( $entry['status'] ) : 'info',
+		'message' => isset( $entry['message'] ) ? sanitize_text_field( $entry['message'] ) : '',
+		'source' => isset( $entry['source'] ) ? sanitize_key( $entry['source'] ) : 'manual',
+		'job_id' => isset( $entry['job_id'] ) ? sanitize_text_field( $entry['job_id'] ) : '',
+		'batch_id' => isset( $entry['batch_id'] ) ? sanitize_text_field( $entry['batch_id'] ) : '',
+		'files' => isset( $entry['files'] ) ? (int) $entry['files'] : 0,
+		'attachments' => isset( $entry['attachments'] ) ? (int) $entry['attachments'] : 0,
+		'generated' => isset( $entry['generated'] ) ? (int) $entry['generated'] : 0,
+		'bytes' => isset( $entry['bytes'] ) ? (int) $entry['bytes'] : 0,
+		'orphans' => isset( $entry['orphans'] ) ? (int) $entry['orphans'] : 0,
+		'missing' => isset( $entry['missing'] ) ? (int) $entry['missing'] : 0,
+		'unused' => isset( $entry['unused'] ) ? (int) $entry['unused'] : 0,
+		'frequency' => isset( $entry['frequency'] ) ? sanitize_key( $entry['frequency'] ) : '',
+		'sizes' => trpl_normalize_text_list( isset( $entry['sizes'] ) ? $entry['sizes'] : array() ),
+		'folders' => trpl_normalize_text_list( isset( $entry['folders'] ) ? $entry['folders'] : array() ),
+	);
+}
+
+function trpl_add_activity_log( $entry ) {
+	$entries = trpl_get_activity_log();
+	array_unshift( $entries, trpl_normalize_activity_log_entry( $entry ) );
+	$entries = array_slice( $entries, 0, trpl_get_activity_log_limit() );
+	update_option( TRPL_ACTIVITY_LOG_OPTION, $entries, false );
+}
+
+function trpl_clear_activity_log() {
+	delete_option( TRPL_ACTIVITY_LOG_OPTION );
+}
+
+function trpl_get_activity_action_label( $action ) {
+	$labels = array(
+		'analysis' => __( 'Library analysis', 'thumbnail-remover' ),
+		'preview' => __( 'Preview cleanup', 'thumbnail-remover' ),
+		'delete' => __( 'Move to Trash', 'thumbnail-remover' ),
+		'restore' => __( 'Restore trash batch', 'thumbnail-remover' ),
+		'regenerate' => __( 'Regenerate sizes', 'thumbnail-remover' ),
+		'backup' => __( 'Backup images', 'thumbnail-remover' ),
+		'scheduled_cleanup' => __( 'Scheduled cleanup', 'thumbnail-remover' ),
+		'settings' => __( 'Settings update', 'thumbnail-remover' ),
+		'system' => __( 'System event', 'thumbnail-remover' ),
+	);
+
+	return isset( $labels[ $action ] ) ? $labels[ $action ] : ucfirst( str_replace( '_', ' ', $action ) );
+}
+
+function trpl_get_activity_status_label( $status ) {
+	$labels = array(
+		'success' => __( 'Success', 'thumbnail-remover' ),
+		'warning' => __( 'Warning', 'thumbnail-remover' ),
+		'info' => __( 'Info', 'thumbnail-remover' ),
+		'error' => __( 'Error', 'thumbnail-remover' ),
+	);
+
+	return isset( $labels[ $status ] ) ? $labels[ $status ] : ucfirst( $status );
+}
+
+function trpl_get_activity_source_label( $source ) {
+	$labels = array(
+		'manual' => __( 'Manual', 'thumbnail-remover' ),
+		'cron' => __( 'WP-Cron', 'thumbnail-remover' ),
+	);
+
+	return isset( $labels[ $source ] ) ? $labels[ $source ] : ucfirst( $source );
+}
+
+function trpl_get_activity_scope_label( $values, $fallback ) {
+	if ( empty( $values ) ) {
+		return $fallback;
+	}
+
+	return implode( ', ', array_map( 'sanitize_text_field', $values ) );
+}
+
+function trpl_get_activity_entry_details( $entry ) {
+	$details = array();
+
+	if ( ! empty( $entry['message'] ) ) {
+		$details[] = $entry['message'];
+	}
+
+	if ( ! empty( $entry['attachments'] ) ) {
+		$details[] = sprintf(
+			/* translators: %d: attachment count. */
+			_n( '%d attachment', '%d attachments', (int) $entry['attachments'], 'thumbnail-remover' ),
+			(int) $entry['attachments']
+		);
+	}
+
+	if ( ! empty( $entry['files'] ) ) {
+		$details[] = sprintf(
+			/* translators: %d: file count. */
+			_n( '%d file', '%d files', (int) $entry['files'], 'thumbnail-remover' ),
+			(int) $entry['files']
+		);
+	}
+
+	if ( ! empty( $entry['generated'] ) ) {
+		$details[] = sprintf(
+			/* translators: %d: generated size count. */
+			_n( '%d generated size', '%d generated sizes', (int) $entry['generated'], 'thumbnail-remover' ),
+			(int) $entry['generated']
+		);
+	}
+
+	if ( ! empty( $entry['bytes'] ) ) {
+		$details[] = size_format( (int) $entry['bytes'] );
+	}
+
+	if ( ! empty( $entry['orphans'] ) ) {
+		$details[] = sprintf(
+			/* translators: %d: orphan count. */
+			_n( '%d orphan', '%d orphans', (int) $entry['orphans'], 'thumbnail-remover' ),
+			(int) $entry['orphans']
+		);
+	}
+
+	if ( ! empty( $entry['missing'] ) ) {
+		$details[] = sprintf(
+			/* translators: %d: missing size count. */
+			_n( '%d missing size', '%d missing sizes', (int) $entry['missing'], 'thumbnail-remover' ),
+			(int) $entry['missing']
+		);
+	}
+
+	if ( ! empty( $entry['unused'] ) ) {
+		$details[] = sprintf(
+			/* translators: %d: unused media count. */
+			_n( '%d unused media item', '%d unused media items', (int) $entry['unused'], 'thumbnail-remover' ),
+			(int) $entry['unused']
+		);
+	}
+
+	if ( ! empty( $entry['frequency'] ) ) {
+		$details[] = sprintf(
+			/* translators: %s: cleanup frequency. */
+			__( 'Frequency: %s', 'thumbnail-remover' ),
+			$entry['frequency']
+		);
+	}
+
+	if ( ! empty( $entry['sizes'] ) ) {
+		$details[] = sprintf(
+			/* translators: %s: selected sizes. */
+			__( 'Sizes: %s', 'thumbnail-remover' ),
+			trpl_get_activity_scope_label( $entry['sizes'], __( 'All sizes', 'thumbnail-remover' ) )
+		);
+	}
+
+	if ( ! empty( $entry['folders'] ) ) {
+		$details[] = sprintf(
+			/* translators: %s: selected folders. */
+			__( 'Folders: %s', 'thumbnail-remover' ),
+			trpl_get_activity_scope_label( $entry['folders'], __( 'All folders', 'thumbnail-remover' ) )
+		);
+	}
+
+	if ( ! empty( $entry['batch_id'] ) ) {
+		$details[] = sprintf(
+			/* translators: %s: trash batch id. */
+			__( 'Batch: %s', 'thumbnail-remover' ),
+			$entry['batch_id']
+		);
+	}
+
+	return implode( ' | ', $details );
+}
+
+function trpl_get_activity_report_summary( $entries ) {
+	$summary = array(
+		'total_events' => count( $entries ),
+		'files_moved' => 0,
+		'bytes_recovered' => 0,
+		'restored_files' => 0,
+		'generated_sizes' => 0,
+		'backup_runs' => 0,
+		'last_event' => 0,
+	);
+
+	foreach ( $entries as $entry ) {
+		if ( empty( $summary['last_event'] ) && ! empty( $entry['timestamp'] ) ) {
+			$summary['last_event'] = (int) $entry['timestamp'];
+		}
+
+		if ( 'success' !== $entry['status'] ) {
+			continue;
+		}
+
+		if ( 'delete' === $entry['action'] || 'scheduled_cleanup' === $entry['action'] ) {
+			$summary['files_moved'] += (int) $entry['files'];
+			$summary['bytes_recovered'] += (int) $entry['bytes'];
+		}
+
+		if ( 'restore' === $entry['action'] ) {
+			$summary['restored_files'] += (int) $entry['files'];
+		}
+
+		if ( 'regenerate' === $entry['action'] ) {
+			$summary['generated_sizes'] += (int) $entry['generated'];
+		}
+
+		if ( 'backup' === $entry['action'] ) {
+			$summary['backup_runs']++;
+		}
+	}
+
+	return $summary;
 }
 
 function trpl_enqueue_styles( $hook ) {
@@ -1203,6 +1427,18 @@ function trpl_ajax_preview_delete() {
 	$selected_folders = trpl_normalize_text_list( $raw_folders );
 	$candidates = trpl_build_removal_candidates( $selected_sizes, $selected_folders );
 	$summary = trpl_create_preview_summary( $candidates );
+	trpl_add_activity_log(
+		array(
+			'action' => 'preview',
+			'status' => empty( $summary['total_files'] ) ? 'info' : 'success',
+			'message' => empty( $summary['total_files'] ) ? __( 'Preview found no matching thumbnails.', 'thumbnail-remover' ) : __( 'Preview completed successfully.', 'thumbnail-remover' ),
+			'files' => (int) $summary['total_files'],
+			'bytes' => (int) $summary['total_bytes'],
+			'orphans' => (int) $summary['orphans'],
+			'sizes' => $selected_sizes,
+			'folders' => $selected_folders,
+		)
+	);
 
 	wp_send_json_success(
 		array(
@@ -1258,6 +1494,21 @@ function trpl_ajax_process_analysis() {
 	if ( $is_complete ) {
 		$summary = $job['summary'];
 		$summary['size_analytics'] = trpl_filter_size_analytics( $summary['size_analytics'] );
+		trpl_add_activity_log(
+			array(
+				'action' => 'analysis',
+				'status' => 'success',
+				'message' => __( 'Library analysis completed successfully.', 'thumbnail-remover' ),
+				'job_id' => $job['id'],
+				'attachments' => (int) $summary['attachments'],
+				'files' => (int) $summary['thumbnail_files'],
+				'bytes' => (int) $summary['thumbnail_bytes'],
+				'orphans' => (int) $summary['orphans'],
+				'missing' => (int) $summary['missing_sizes'],
+				'unused' => (int) $summary['unused_media'],
+				'folders' => isset( $job['selected_folders'] ) ? $job['selected_folders'] : array(),
+			)
+		);
 		$response['summary'] = $summary;
 		trpl_delete_job( $job_id );
 	}
@@ -1308,6 +1559,22 @@ function trpl_ajax_process_delete() {
 	if ( $is_complete ) {
 		$response['result'] = $job['result'];
 		$response['trash_batch_id'] = $job['trash_batch_id'];
+		if ( 'scheduled_cleanup' !== ( isset( $job['source'] ) ? $job['source'] : 'manual' ) ) {
+			trpl_add_activity_log(
+				array(
+					'action' => 'delete',
+					'status' => 'success',
+					'message' => __( 'Matching thumbnails were moved to Trash.', 'thumbnail-remover' ),
+					'job_id' => $job['id'],
+					'batch_id' => $job['trash_batch_id'],
+					'files' => (int) $job['result']['moved'],
+					'bytes' => (int) $job['result']['bytes'],
+					'orphans' => (int) $job['result']['orphans'],
+					'sizes' => isset( $job['selected_sizes'] ) ? $job['selected_sizes'] : array(),
+					'folders' => isset( $job['selected_folders'] ) ? $job['selected_folders'] : array(),
+				)
+			);
+		}
 		trpl_delete_job( $job_id );
 	}
 
@@ -1325,6 +1592,16 @@ function trpl_ajax_restore_trash() {
 	if ( is_wp_error( $result ) ) {
 		wp_send_json_error( array( 'message' => $result->get_error_message() ) );
 	}
+
+	trpl_add_activity_log(
+		array(
+			'action' => 'restore',
+			'status' => 'success',
+			'message' => __( 'Trash batch restored successfully.', 'thumbnail-remover' ),
+			'batch_id' => $batch_id,
+			'files' => isset( $result['restored'] ) ? (int) $result['restored'] : 0,
+		)
+	);
 
 	wp_send_json_success( $result );
 }
@@ -1370,6 +1647,18 @@ function trpl_ajax_process_regenerate() {
 
 	if ( $is_complete ) {
 		$response['result'] = $job['result'];
+		trpl_add_activity_log(
+			array(
+				'action' => 'regenerate',
+				'status' => 'success',
+				'message' => __( 'Regeneration completed successfully.', 'thumbnail-remover' ),
+				'job_id' => $job['id'],
+				'attachments' => (int) $job['result']['attachments'],
+				'generated' => (int) $job['result']['generated'],
+				'sizes' => isset( $job['selected_sizes'] ) ? $job['selected_sizes'] : array(),
+				'folders' => isset( $job['selected_folders'] ) ? $job['selected_folders'] : array(),
+			)
+		);
 		trpl_delete_job( $job_id );
 	}
 
@@ -1400,6 +1689,16 @@ function trpl_backup_images_ajax() {
 	if ( ! $zip_file ) {
 		wp_send_json_error( array( 'message' => __( 'Failed to create zip backup.', 'thumbnail-remover' ) ) );
 	}
+
+	trpl_add_activity_log(
+		array(
+			'action' => 'backup',
+			'status' => 'success',
+			'message' => __( 'Image backup created successfully.', 'thumbnail-remover' ),
+			'bytes' => file_exists( $zip_file ) ? (int) filesize( $zip_file ) : 0,
+			'folders' => 'date' === $backup_type && $backup_year && $backup_month ? array( $backup_year . '/' . $backup_month ) : array(),
+		)
+	);
 
 	wp_send_json_success(
 		array(
@@ -1597,12 +1896,25 @@ function trpl_run_scheduled_cleanup() {
 				'last_job_id' => $existing_job['id'],
 			)
 		);
+		trpl_add_activity_log(
+			array(
+				'action' => 'scheduled_cleanup',
+				'status' => 'warning',
+				'message' => __( 'Scheduled cleanup was skipped because another scheduled cleanup job is already running.', 'thumbnail-remover' ),
+				'job_id' => $existing_job['id'],
+				'frequency' => isset( $settings['frequency'] ) ? $settings['frequency'] : '',
+				'sizes' => isset( $settings['sizes'] ) ? $settings['sizes'] : array(),
+				'folders' => isset( $settings['folders'] ) ? $settings['folders'] : array(),
+				'source' => 'cron',
+			)
+		);
 		trpl_schedule_cleanup_processor();
 		return;
 	}
 
 	$job = trpl_create_delete_job( $settings['sizes'], $settings['folders'] );
 	$job['source'] = 'scheduled_cleanup';
+	$job['frequency'] = isset( $settings['frequency'] ) ? $settings['frequency'] : '';
 	trpl_save_job( $job );
 
 	if ( empty( $job['total'] ) ) {
@@ -1623,6 +1935,18 @@ function trpl_run_scheduled_cleanup() {
 				),
 			)
 		);
+		trpl_add_activity_log(
+			array(
+				'action' => 'scheduled_cleanup',
+				'status' => 'info',
+				'message' => __( 'Scheduled cleanup found no matching thumbnails.', 'thumbnail-remover' ),
+				'job_id' => $job['id'],
+				'frequency' => isset( $settings['frequency'] ) ? $settings['frequency'] : '',
+				'sizes' => isset( $settings['sizes'] ) ? $settings['sizes'] : array(),
+				'folders' => isset( $settings['folders'] ) ? $settings['folders'] : array(),
+				'source' => 'cron',
+			)
+		);
 		return;
 	}
 
@@ -1634,6 +1958,20 @@ function trpl_run_scheduled_cleanup() {
 			'last_job_id' => $job['id'],
 			'last_batch_id' => $job['trash_batch_id'],
 			'last_result' => array(),
+		)
+	);
+	trpl_add_activity_log(
+		array(
+			'action' => 'scheduled_cleanup',
+			'status' => 'info',
+			'message' => __( 'Scheduled cleanup job created and queued for processing.', 'thumbnail-remover' ),
+			'job_id' => $job['id'],
+			'batch_id' => $job['trash_batch_id'],
+			'files' => (int) $job['total'],
+			'frequency' => isset( $settings['frequency'] ) ? $settings['frequency'] : '',
+			'sizes' => isset( $settings['sizes'] ) ? $settings['sizes'] : array(),
+			'folders' => isset( $settings['folders'] ) ? $settings['folders'] : array(),
+			'source' => 'cron',
 		)
 	);
 	trpl_schedule_cleanup_processor();
@@ -1651,6 +1989,22 @@ function trpl_process_scheduled_cleanup() {
 	$is_complete = trpl_process_delete_job( $job );
 
 	if ( $is_complete ) {
+		trpl_add_activity_log(
+			array(
+				'action' => 'scheduled_cleanup',
+				'status' => 'success',
+				'message' => __( 'Scheduled cleanup completed successfully.', 'thumbnail-remover' ),
+				'job_id' => $job['id'],
+				'batch_id' => $job['trash_batch_id'],
+				'files' => (int) $job['result']['moved'],
+				'bytes' => (int) $job['result']['bytes'],
+				'orphans' => (int) $job['result']['orphans'],
+				'frequency' => isset( $job['frequency'] ) ? $job['frequency'] : '',
+				'sizes' => isset( $job['selected_sizes'] ) ? $job['selected_sizes'] : array(),
+				'folders' => isset( $job['selected_folders'] ) ? $job['selected_folders'] : array(),
+				'source' => 'cron',
+			)
+		);
 		trpl_delete_job( $job['id'] );
 		trpl_set_scheduled_cleanup_status(
 			array(
@@ -1714,6 +2068,11 @@ function trpl_admin_page() {
 			trpl_sync_scheduled_cleanup_events( $scheduled_cleanup_settings );
 			trpl_admin_notice( __( 'Scheduled cleanup settings updated successfully.', 'thumbnail-remover' ) );
 		}
+
+		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) && '' !== trpl_get_post_scalar_input( 'clear_activity_log' ) ) {
+			trpl_clear_activity_log();
+			trpl_admin_notice( __( 'Activity log cleared successfully.', 'thumbnail-remover' ) );
+		}
 	}
 
 	$registered_sizes = trpl_get_all_image_sizes();
@@ -1724,6 +2083,8 @@ function trpl_admin_page() {
 	$next_scheduled_cleanup = wp_next_scheduled( TRPL_SCHEDULE_EVENT_HOOK );
 	$available_dates = trpl_get_available_dates();
 	$trash_batches = trpl_get_trash_batches();
+	$activity_log = trpl_get_activity_log();
+	$activity_summary = trpl_get_activity_report_summary( $activity_log );
 	$ad_slot_definitions = trpl_get_admin_ad_slot_definitions();
 	?>
 	<div class="wrap">
@@ -1954,6 +2315,80 @@ function trpl_admin_page() {
 						<div id="backup-result" class="trpl-results"></div>
 					</div>
 				</div>
+			</div>
+
+				<div class="wrt-box">
+				<h2><?php esc_html_e( 'Reporting and Logs', 'thumbnail-remover' ); ?></h2>
+				<p><?php esc_html_e( 'Review recent media operations, recovery totals, and scheduled activity from one place.', 'thumbnail-remover' ); ?></p>
+				<div class="trpl-cards trpl-report-cards">
+					<div class="trpl-card">
+						<strong><?php echo esc_html( (int) $activity_summary['total_events'] ); ?></strong>
+						<span><?php esc_html_e( 'Tracked events', 'thumbnail-remover' ); ?></span>
+					</div>
+					<div class="trpl-card">
+						<strong><?php echo esc_html( (int) $activity_summary['files_moved'] ); ?></strong>
+						<span><?php esc_html_e( 'Files moved to Trash', 'thumbnail-remover' ); ?></span>
+					</div>
+					<div class="trpl-card">
+						<strong><?php echo esc_html( size_format( (int) $activity_summary['bytes_recovered'] ) ); ?></strong>
+						<span><?php esc_html_e( 'Recovered storage', 'thumbnail-remover' ); ?></span>
+					</div>
+					<div class="trpl-card">
+						<strong><?php echo esc_html( (int) $activity_summary['restored_files'] ); ?></strong>
+						<span><?php esc_html_e( 'Files restored', 'thumbnail-remover' ); ?></span>
+					</div>
+					<div class="trpl-card">
+						<strong><?php echo esc_html( (int) $activity_summary['generated_sizes'] ); ?></strong>
+						<span><?php esc_html_e( 'Sizes regenerated', 'thumbnail-remover' ); ?></span>
+					</div>
+					<div class="trpl-card">
+						<strong><?php echo esc_html( (int) $activity_summary['backup_runs'] ); ?></strong>
+						<span><?php esc_html_e( 'Backup runs', 'thumbnail-remover' ); ?></span>
+					</div>
+				</div>
+
+				<div class="trpl-status-grid trpl-report-grid">
+					<div class="trpl-status-card">
+						<strong><?php esc_html_e( 'Last activity', 'thumbnail-remover' ); ?></strong>
+						<span><?php echo ! empty( $activity_summary['last_event'] ) ? esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $activity_summary['last_event'] ) ) : esc_html__( 'No activity recorded yet.', 'thumbnail-remover' ); ?></span>
+					</div>
+					<div class="trpl-status-card">
+						<strong><?php esc_html_e( 'Trash batches available', 'thumbnail-remover' ); ?></strong>
+						<span><?php echo esc_html( count( $trash_batches ) ); ?></span>
+					</div>
+				</div>
+
+				<form method="post" class="trpl-inline-form">
+					<?php wp_nonce_field( 'thumbnail-manager-nonce', 'thumbnail_manager_nonce' ); ?>
+					<p><input type="submit" name="clear_activity_log" class="button" value="<?php esc_attr_e( 'Clear Activity Log', 'thumbnail-remover' ); ?>"></p>
+				</form>
+
+				<table class="widefat striped trpl-activity-table">
+					<thead>
+						<tr>
+							<th><?php esc_html_e( 'Time', 'thumbnail-remover' ); ?></th>
+							<th><?php esc_html_e( 'Action', 'thumbnail-remover' ); ?></th>
+							<th><?php esc_html_e( 'Source', 'thumbnail-remover' ); ?></th>
+							<th><?php esc_html_e( 'Status', 'thumbnail-remover' ); ?></th>
+							<th><?php esc_html_e( 'Details', 'thumbnail-remover' ); ?></th>
+						</tr>
+					</thead>
+					<tbody>
+						<?php if ( empty( $activity_log ) ) : ?>
+							<tr><td colspan="5"><?php esc_html_e( 'No activity has been recorded yet.', 'thumbnail-remover' ); ?></td></tr>
+						<?php else : ?>
+							<?php foreach ( $activity_log as $entry ) : ?>
+								<tr>
+									<td><?php echo esc_html( wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), (int) $entry['timestamp'] ) ); ?></td>
+									<td><?php echo esc_html( trpl_get_activity_action_label( $entry['action'] ) ); ?></td>
+									<td><?php echo esc_html( trpl_get_activity_source_label( $entry['source'] ) ); ?></td>
+									<td><span class="trpl-status-pill trpl-status-pill-<?php echo esc_attr( $entry['status'] ); ?>"><?php echo esc_html( trpl_get_activity_status_label( $entry['status'] ) ); ?></span></td>
+									<td><?php echo esc_html( trpl_get_activity_entry_details( $entry ) ); ?></td>
+								</tr>
+							<?php endforeach; ?>
+						<?php endif; ?>
+					</tbody>
+				</table>
 			</div>
 
 				<div class="wrt-box trpl-pro-box">

@@ -230,6 +230,50 @@
 	color: #646970;
 }
 
+.trpl-inline-form {
+	margin: 16px 0;
+}
+
+.trpl-report-cards {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.trpl-report-grid {
+	margin-top: 0;
+}
+
+.trpl-activity-table td {
+	vertical-align: top;
+}
+
+.trpl-status-pill {
+	display: inline-block;
+	padding: 4px 10px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+}
+
+.trpl-status-pill-success {
+	background: #e8f7ed;
+	color: #116329;
+}
+
+.trpl-status-pill-info {
+	background: #e8f1fb;
+	color: #0f4c81;
+}
+
+.trpl-status-pill-warning {
+	background: #fff4df;
+	color: #8a5300;
+}
+
+.trpl-status-pill-error {
+	background: #fdeaea;
+	color: #8a2424;
+}
+
 @media (max-width: 1100px) {
 	.trpl-admin-layout {
 		grid-template-columns: 1fr;
@@ -244,6 +288,10 @@
 	}
 
 	.trpl-cards {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.trpl-report-cards {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 }
@@ -262,6 +310,10 @@
 	}
 
 	.trpl-status-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.trpl-report-cards {
 		grid-template-columns: 1fr;
 	}
 }
