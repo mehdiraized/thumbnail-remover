@@ -1,7 +1,10 @@
 .git/
 .github/
+.gitignore
+.husky/
 .wp-env.json
 .distignore
+.release-build/
 node_modules/
 output/
 scripts/
@@ -10,3 +13,5 @@ docs/
 package.json
 package-lock.json
 wp-env-screenshots.json
+assets/banner-1544x500.png
+assets/screenshots/
