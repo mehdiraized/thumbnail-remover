@@ -203,6 +203,19 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 - Hardened settings and AJAX input handling for string-based values
 - Updated compatibility metadata for the latest WordPress release
 
+## Release Workflow
+
+- Run `npm install` once so Husky installs the local git hooks.
+- Pushing `main` now syncs the current plugin state to the local WordPress.org SVN checkout before GitHub push completes.
+- GitHub Actions only validates the plugin, publishes the GitHub release, generates release notes from commit messages, and deploys the docs site.
+- To skip the local WordPress.org deploy for one push, use `TRPL_SKIP_WPORG_DEPLOY=1 git push origin main`.
+
+## Screenshot Workflow
+
+- CI screenshot generation is disabled.
+- Refresh the plugin screenshots locally with `npm run screenshots`.
+- If the local WordPress test environment is already prepared, capture only the images with `npm run screenshots:capture`.
+
 ## Support
 
 If the plugin saves you time, you can support future development here:

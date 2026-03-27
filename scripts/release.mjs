@@ -63,6 +63,10 @@ async function main() {
 			break;
 		}
 
+		case 'notes':
+			process.stdout.write(generateReleaseNotes());
+			break;
+
 		case 'ship': {
 			const dryRun = hasFlag(args, '--dry-run');
 			const positionalArgs = stripFlags(args);
@@ -85,7 +89,7 @@ async function main() {
 		}
 
 		default:
-			throw new Error(`Unknown command "${command}". Use verify, bump, deploy, or ship.`);
+			throw new Error(`Unknown command "${command}". Use verify, bump, deploy, notes, or ship.`);
 	}
 }
 
@@ -327,6 +331,147 @@ function verifySvnCheckout() {
 
 function defaultSvnMessage() {
 	return `Release ${readVersionMetadata().pluginVersion}`;
+}
+
+function generateReleaseNotes() {
+	const { pluginVersion } = readVersionMetadata();
+	const currentTag = `v${pluginVersion}`;
+	const previousTag = getPreviousReleaseTag(currentTag);
+	const commitRange = previousTag ? `${previousTag}..HEAD` : 'HEAD';
+	const commits = getCommitsForRange(commitRange);
+	const groups = groupCommits(commits);
+	const lines = [`## What's Changed`, ''];
+
+	if (previousTag) {
+		lines.push(`Based on commits since \`${previousTag}\`.`, '');
+	}
+
+	const orderedGroups = [
+		['Features', groups.features],
+		['Fixes', groups.fixes],
+		['Maintenance', groups.maintenance],
+		['Docs', groups.docs],
+		['Other', groups.other],
+	];
+
+	let hasEntries = false;
+	for (const [title, entries] of orderedGroups) {
+		if (!entries.length) {
+			continue;
+		}
+
+		hasEntries = true;
+		lines.push(`### ${title}`);
+		for (const entry of entries) {
+			lines.push(`- ${entry.summary} (${entry.shortHash})`);
+		}
+		lines.push('');
+	}
+
+	if (!hasEntries) {
+		lines.push('- Maintenance release.', '');
+	}
+
+	lines.push('## Package', '', '- Built automatically from the `main` branch.', '');
+	return `${lines.join('\n').trim()}\n`;
+}
+
+function getPreviousReleaseTag(currentTag) {
+	const output = runCapture('git', ['tag', '--list', 'v*', '--sort=-version:refname'], rootDir).trim();
+	if (!output) {
+		return null;
+	}
+
+	const tags = output
+		.split('\n')
+		.map((tag) => tag.trim())
+		.filter(Boolean)
+		.filter((tag) => tag !== currentTag);
+
+	return tags[0] || null;
+}
+
+function getCommitsForRange(range) {
+	const separator = '--TRPL-COMMIT--';
+	const output = runCapture(
+		'git',
+		['log', '--no-merges', '--pretty=format:%H%x1f%s%x1e', range],
+		rootDir
+	).trim();
+
+	if (!output) {
+		return [];
+	}
+
+	return output
+		.split('\x1e')
+		.map((entry) => entry.trim())
+		.filter(Boolean)
+		.map((entry) => {
+			const [hash = '', subject = ''] = entry.split('\x1f');
+			return {
+				hash: hash.trim(),
+				shortHash: hash.trim().slice(0, 7),
+				subject: subject.trim(),
+			};
+		})
+		.filter((entry) => entry.subject && !/^chore\(release\):/i.test(entry.subject));
+}
+
+function groupCommits(commits) {
+	const groups = {
+		features: [],
+		fixes: [],
+		maintenance: [],
+		docs: [],
+		other: [],
+	};
+
+	for (const commit of commits) {
+		const parsed = parseCommitSubject(commit.subject);
+		const entry = { ...commit, summary: parsed.summary };
+
+		switch (parsed.type) {
+			case 'feat':
+				groups.features.push(entry);
+				break;
+			case 'fix':
+				groups.fixes.push(entry);
+				break;
+			case 'docs':
+				groups.docs.push(entry);
+				break;
+			case 'build':
+			case 'ci':
+			case 'chore':
+			case 'perf':
+			case 'refactor':
+			case 'style':
+			case 'test':
+				groups.maintenance.push(entry);
+				break;
+			default:
+				groups.other.push(entry);
+				break;
+		}
+	}
+
+	return groups;
+}
+
+function parseCommitSubject(subject) {
+	const match = subject.match(/^([a-z]+)(?:\([^)]+\))?!?:\s*(.+)$/i);
+	if (!match) {
+		return {
+			type: 'other',
+			summary: subject,
+		};
+	}
+
+	return {
+		type: match[1].toLowerCase(),
+		summary: match[2].trim(),
+	};
 }
 
 function assertCommandAvailable(command) {

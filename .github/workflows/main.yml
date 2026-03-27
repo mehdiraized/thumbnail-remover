@@ -1,0 +1,207 @@
+name: Main Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+concurrency:
+  group: main-pipeline-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate Plugin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Build clean plugin directory
+        run: |
+          mkdir -p build/thumbnail-remover
+          rsync -av ./ build/thumbnail-remover/ --exclude-from=.distignore
+
+      - name: Run plugin check
+        uses: WordPress/plugin-check-action@v1
+        with:
+          build-dir: ./build/thumbnail-remover
+
+  release:
+    name: Build GitHub Release
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Resolve plugin version
+        id: meta
+        run: |
+          plugin_version="$(sed -n "s/^Version: //p" thumbnail-remover.php | head -n 1 | tr -d '\r')"
+          stable_tag="$(sed -n "s/^Stable tag: //p" readme.txt | head -n 1 | tr -d '\r')"
+
+          if [ -z "$plugin_version" ] || [ -z "$stable_tag" ]; then
+            echo "::error::Could not resolve release metadata."
+            exit 1
+          fi
+
+          if [ "$plugin_version" != "$stable_tag" ]; then
+            echo "::error::Version mismatch: thumbnail-remover.php=$plugin_version, readme.txt=$stable_tag"
+            exit 1
+          fi
+
+          echo "version=$plugin_version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$plugin_version" >> "$GITHUB_OUTPUT"
+
+      - name: Check release state
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            echo "release_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if git rev-parse "${{ steps.meta.outputs.tag }}" >/dev/null 2>&1; then
+            echo "tag_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stop when current version is already released
+        if: steps.existing.outputs.release_exists == 'true'
+        run: echo "Release ${{ steps.meta.outputs.tag }} already exists. Skipping."
+
+      - name: Generate release notes
+        if: steps.existing.outputs.release_exists != 'true'
+        run: |
+          mkdir -p build
+          node scripts/release.mjs notes > build/release-notes.md
+
+      - name: Create and push version tag
+        if: steps.existing.outputs.release_exists != 'true' && steps.existing.outputs.tag_exists != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.meta.outputs.tag }}" -m "Release ${{ steps.meta.outputs.tag }}"
+          git push origin "${{ steps.meta.outputs.tag }}"
+
+      - name: Build plugin zip
+        if: steps.existing.outputs.release_exists != 'true'
+        run: |
+          mkdir -p build/thumbnail-remover
+          rsync -av ./ build/thumbnail-remover/ --exclude-from=.distignore
+          cd build
+          zip -r thumbnail-remover.zip thumbnail-remover
+
+      - name: Create GitHub release
+        if: steps.existing.outputs.release_exists != 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          body_path: build/release-notes.md
+          files: build/thumbnail-remover.zip
+          overwrite_files: true
+
+  pages:
+    name: Deploy Docs
+    needs:
+      - validate
+      - release
+    runs-on: ubuntu-latest
+    env:
+      PAGES_ENABLEMENT_TOKEN: ${{ secrets.PAGES_ENABLEMENT_TOKEN }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Check Pages configuration
+        id: pages_check
+        if: ${{ env.PAGES_ENABLEMENT_TOKEN == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          status_code="$(
+            curl -sS -o /tmp/pages-response.json -w '%{http_code}' \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${REPO}/pages"
+          )"
+
+          if [ "${status_code}" = "200" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${status_code}" = "404" ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub Pages is not enabled for this repository yet, so deployment will be skipped."
+            exit 0
+          fi
+
+          cat /tmp/pages-response.json
+          echo "::error::Unexpected response while checking GitHub Pages configuration (HTTP ${status_code})."
+          exit 1
+
+      - name: Prepare Pages content
+        run: |
+          mkdir -p public/screenshots public/assets
+          cp -R docs/. public/
+          cp assets/banner-1544x500.png public/assets/banner-1544x500.png
+          cp assets/screenshots/screenshot-1.png public/screenshots/screenshot-1.png
+          cp assets/screenshots/screenshot-2.png public/screenshots/screenshot-2.png
+          cp assets/screenshots/screenshot-3.png public/screenshots/screenshot-3.png
+          cp assets/screenshots/screenshot-4.png public/screenshots/screenshot-4.png
+
+      - name: Explain missing Pages configuration
+        if: ${{ env.PAGES_ENABLEMENT_TOKEN == '' && steps.pages_check.outputs.enabled != 'true' }}
+        run: |
+          echo "::notice::Skipping deploy because GitHub Pages is not enabled for this repository."
+          echo "::notice::Enable GitHub Pages in Settings > Pages and set the build source to GitHub Actions, or add a PAT secret named PAGES_ENABLEMENT_TOKEN with Pages admin access for this repository."
+
+      - name: Setup Pages with automatic enablement
+        if: ${{ env.PAGES_ENABLEMENT_TOKEN != '' }}
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+          token: ${{ env.PAGES_ENABLEMENT_TOKEN }}
+
+      - name: Setup Pages
+        if: ${{ env.PAGES_ENABLEMENT_TOKEN == '' && steps.pages_check.outputs.enabled == 'true' }}
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        if: ${{ env.PAGES_ENABLEMENT_TOKEN != '' || steps.pages_check.outputs.enabled == 'true' }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        if: ${{ env.PAGES_ENABLEMENT_TOKEN != '' || steps.pages_check.outputs.enabled == 'true' }}
+        uses: actions/deploy-pages@v4
