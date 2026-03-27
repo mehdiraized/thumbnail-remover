@@ -1,0 +1,15 @@
+#!/usr/bin/env sh
+
+if [ "${SKIP_WPORG_PUSH_GUARD:-}" = "1" ]; then
+  exit 0
+fi
+
+current_branch="$(git branch --show-current 2>/dev/null)"
+
+if [ "$current_branch" != "main" ]; then
+  exit 0
+fi
+
+printf '\nPush to main is guarded for WordPress.org releases.\n'
+printf 'Use `npm run ship -- patch`, `npm run ship -- minor`, or `npm run ship -- x.y.z` instead.\n\n'
+exit 1

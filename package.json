@@ -2,11 +2,17 @@
   "name": "thumbnail-remover",
   "private": true,
   "scripts": {
+    "prepare": "husky",
+    "release:verify": "node scripts/release.mjs verify",
+    "release:bump": "node scripts/release.mjs bump",
+    "release:deploy": "node scripts/release.mjs deploy",
+    "ship": "node scripts/release.mjs ship",
     "screenshots:bootstrap": "node scripts/bootstrap-screenshot-env.mjs",
     "screenshots:capture": "node scripts/generate-plugin-screenshots.mjs",
     "screenshots:refresh": "npm run screenshots:bootstrap && npm run screenshots:capture"
   },
   "devDependencies": {
+    "husky": "^9.1.7",
     "@wordpress/env": "^10.20.0",
     "playwright": "^1.54.2"
   }
