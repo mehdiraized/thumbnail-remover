@@ -4,12 +4,12 @@
 **Tags:** thumbnails, media management, image optimization, cleanup, regenerate thumbnails  
 **Requires at least:** 5.0  
 **Tested up to:** 6.9  
-**Stable tag:** 2.1.0  
+**Stable tag:** 2.2.0  
 **Requires PHP:** 7.4  
 **License:** GPLv2 or later  
 **License URI:** https://www.gnu.org/licenses/gpl-2.0.html
 
-Safely analyze, preview, trash, restore, schedule, regenerate, and manage WordPress thumbnails and image sizes.
+Safely analyze, preview, trash, restore, schedule, regenerate, report on, and manage WordPress thumbnails and image sizes.
 
 Landing page: [https://mehdiraized.github.io/thumbnail-remover/](https://mehdiraized.github.io/thumbnail-remover/)
 
@@ -21,9 +21,9 @@ WordPress.org: [https://wordpress.org/plugins/thumbnail-remover/](https://wordpr
 
 ## Overview
 
-Thumbnail Remover and Size Manager 2.0 turns the plugin into a safer media maintenance workflow for WordPress sites.
+Thumbnail Remover and Size Manager 2.2 continues the plugin's safer media maintenance workflow for WordPress sites.
 
-Instead of removing thumbnails with a single irreversible step, v2 adds:
+Instead of removing thumbnails with a single irreversible step, the current release adds:
 
 - Dry-run preview before cleanup
 - Trash and Restore workflow
@@ -32,6 +32,7 @@ Instead of removing thumbnails with a single irreversible step, v2 adds:
 - Orphan thumbnail detection
 - Missing-size regeneration
 - Per-size analytics
+- Reporting and recent activity logs
 - Existing image-size disable controls
 - Zip backups for uploads
 - Scheduled cleanup with configurable frequency and scope
@@ -87,6 +88,10 @@ See per-size analytics including:
 - Missing size count
 - Orphan count
 - Last seen attachment date
+
+### Reporting and Logs
+
+Review recent media operations from the admin screen, including analysis runs, previews, cleanup batches, restores, regenerations, backups, and WP-Cron cleanup activity. The reporting view also summarizes recovered storage, regenerated sizes, restore totals, and backup runs.
 
 ## Installation
 
@@ -167,6 +172,12 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 ![Regenerate Missing Sizes](assets/screenshots/screenshot-4.png)
 
 ## Changelog
+
+### 2.2.0
+
+- Added a Reporting and Logs section with recent activity history
+- Added operation summaries for recovered storage, restores, regenerated sizes, and backups
+- Logged manual and scheduled cleanup activity, preview runs, analysis runs, restores, regenerations, and backup events
 
 ### 2.1.0
 
