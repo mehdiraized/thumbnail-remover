@@ -206,8 +206,9 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 ## Release Workflow
 
 - Run `npm install` once so Husky installs the local git hooks.
-- Pushing `main` now syncs the current plugin state to the local WordPress.org SVN checkout before GitHub push completes.
-- GitHub Actions only validates the plugin, publishes the GitHub release, generates release notes from commit messages, and deploys the docs site.
+- The first push to `main` now prepares a local release commit such as `chore(release): v2.2.1` and stops the push so you can review it.
+- Re-run `git push origin main` after that release commit is created. The second push syncs the exact same version to the local WordPress.org SVN checkout before GitHub push completes.
+- GitHub Actions now only validates the plugin, creates the Git tag and GitHub release for the version already prepared locally, generates release notes from commit messages, and deploys the docs site.
 - To skip the local WordPress.org deploy for one push, use `TRPL_SKIP_WPORG_DEPLOY=1 git push origin main`.
 
 ## Screenshot Workflow

@@ -48,6 +48,12 @@ async function main() {
 			console.log(`Version is in sync at ${readVersionMetadata().pluginVersion}.`);
 			break;
 
+		case 'prepare-push': {
+			const releaseType = firstNonFlag(args) || process.env.TRPL_RELEASE_TYPE || 'patch';
+			preparePushRelease(releaseType);
+			break;
+		}
+
 		case 'bump': {
 			const nextVersion = resolveNextVersion(firstNonFlag(args));
 			updateProjectVersion(nextVersion);
@@ -89,7 +95,7 @@ async function main() {
 		}
 
 		default:
-			throw new Error(`Unknown command "${command}". Use verify, bump, deploy, notes, or ship.`);
+			throw new Error(`Unknown command "${command}". Use verify, prepare-push, bump, deploy, notes, or ship.`);
 	}
 }
 
@@ -195,7 +201,39 @@ function updateProjectVersion(nextVersion) {
 	packageJson.version = nextVersion;
 	fs.writeFileSync(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`);
 
+	const packageLockPath = path.join(rootDir, 'package-lock.json');
+	if (fs.existsSync(packageLockPath)) {
+		const packageLock = JSON.parse(fs.readFileSync(packageLockPath, 'utf8'));
+		packageLock.version = nextVersion;
+		if (packageLock.packages?.['']) {
+			packageLock.packages[''].version = nextVersion;
+		}
+		fs.writeFileSync(packageLockPath, `${JSON.stringify(packageLock, null, 2)}\n`);
+	}
+
 	console.log(`Version bumped from ${currentVersion} to ${nextVersion}.`);
+}
+
+function preparePushRelease(requestedVersion) {
+	assertCommandAvailable('git');
+	assertGitBranchIsMain();
+	verifyVersionConsistency();
+
+	const currentVersion = readVersionMetadata().pluginVersion;
+	const releaseCommitSubject = `chore(release): v${currentVersion}`;
+	const headSubject = runCapture('git', ['log', '-1', '--pretty=%s'], rootDir).trim();
+
+	if (headSubject === releaseCommitSubject) {
+		console.log(`Release commit already prepared for v${currentVersion}.`);
+		return;
+	}
+
+	const nextVersion = resolveNextVersion(requestedVersion);
+	updateProjectVersion(nextVersion);
+	run('git', ['add', 'thumbnail-remover.php', 'readme.txt', 'README.md', 'package.json', 'package-lock.json'], rootDir);
+	run('git', ['commit', '-m', `chore(release): v${nextVersion}`], rootDir);
+	console.log(`Prepared release version v${nextVersion}. Re-run the push so the new release commit is included.`);
+	process.exit(10);
 }
 
 function deployToWordPressOrg(message, options = {}) {

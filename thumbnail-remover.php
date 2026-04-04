@@ -910,7 +910,6 @@ function trpl_build_regeneration_attachment_ids( $selected_folders ) {
 }
 
 function trpl_is_attachment_used( $attachment_id ) {
-	global $wpdb;
 	static $usage_results = array();
 
 	if ( isset( $usage_results[ $attachment_id ] ) ) {
@@ -966,9 +965,15 @@ function trpl_get_attachment_usage_lookup() {
 		return $lookup;
 	}
 
-	$featured_ids = $wpdb->get_col(
-		"SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_thumbnail_id' AND meta_value != ''"
-	);
+	$cache_key = 'attachment_usage_lookup_' . trpl_get_cache_version();
+	$cached_lookup = wp_cache_get( $cache_key, 'thumbnail_remover' );
+
+	if ( is_array( $cached_lookup ) ) {
+		$lookup = $cached_lookup;
+		return $lookup;
+	}
+
+	$featured_ids = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_thumbnail_id' AND meta_value != ''" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 	foreach ( $featured_ids as $featured_id ) {
 		$lookup[ (int) $featured_id ] = true;
@@ -976,21 +981,26 @@ function trpl_get_attachment_usage_lookup() {
 
 	$parent_statuses = trpl_get_usage_query_statuses();
 	$status_placeholders = implode( ', ', array_fill( 0, count( $parent_statuses ), '%s' ) );
-	$sql = "
-		SELECT child.ID
-		FROM {$wpdb->posts} child
-		INNER JOIN {$wpdb->posts} parent ON parent.ID = child.post_parent
-		WHERE child.post_type = 'attachment'
-			AND child.post_status = 'inherit'
-			AND child.post_parent > 0
-			AND parent.post_status IN ($status_placeholders)
-	";
-	$parented_ids = $wpdb->get_col( $wpdb->prepare( $sql, $parent_statuses ) );
+	$parented_ids = $wpdb->get_col(
+		$wpdb->prepare(
+			"
+			SELECT child.ID
+			FROM {$wpdb->posts} child
+			INNER JOIN {$wpdb->posts} parent ON parent.ID = child.post_parent
+			WHERE child.post_type = 'attachment'
+				AND child.post_status = 'inherit'
+				AND child.post_parent > 0
+				AND parent.post_status IN ($status_placeholders)
+			",
+			$parent_statuses
+		)
+	); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 	foreach ( $parented_ids as $parented_id ) {
 		$lookup[ (int) $parented_id ] = true;
 	}
 
+	wp_cache_set( $cache_key, $lookup, 'thumbnail_remover', trpl_get_cache_ttl() );
 	return $lookup;
 }
 
@@ -1002,6 +1012,13 @@ function trpl_attachment_usage_search_exists( $needle ) {
 		return $search_cache[ $needle ];
 	}
 
+	$cache_key = 'attachment_usage_search_' . md5( $needle . '|' . trpl_get_cache_version() );
+	$cached_result = wp_cache_get( $cache_key, 'thumbnail_remover' );
+
+	if ( false !== $cached_result ) {
+		$search_cache[ $needle ] = (bool) $cached_result;
+		return $search_cache[ $needle ];
+	}
 	$like = '%' . $wpdb->esc_like( $needle ) . '%';
 	$result = (int) $wpdb->get_var(
 		$wpdb->prepare(
@@ -1027,9 +1044,10 @@ function trpl_attachment_usage_search_exists( $needle ) {
 			$like,
 			$like
 		)
-	);
+	); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
 
 	$search_cache[ $needle ] = $result > 0;
+	wp_cache_set( $cache_key, $search_cache[ $needle ], 'thumbnail_remover', trpl_get_cache_ttl() );
 
 	return $search_cache[ $needle ];
 }
