@@ -72,6 +72,16 @@ jobs:
           echo "version=$plugin_version" >> "$GITHUB_OUTPUT"
           echo "tag=v$plugin_version" >> "$GITHUB_OUTPUT"
 
+      - name: Ensure release version was prepared before push
+        run: |
+          head_subject="$(git log -1 --pretty=%s | tr -d '\r')"
+          expected_subject="chore(release): v${{ steps.meta.outputs.version }}"
+
+          if [ "$head_subject" != "$expected_subject" ]; then
+            echo "::error::Expected the top commit on main to be '$expected_subject' so CI releases the exact version prepared locally. Found '$head_subject'."
+            exit 1
+          fi
+
       - name: Check release state
         id: existing
         env:

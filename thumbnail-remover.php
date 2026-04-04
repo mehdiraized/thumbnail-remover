@@ -23,6 +23,7 @@ define( 'TRPL_JOBS_OPTION', 'trpl_jobs' );
 define( 'TRPL_ACTIVITY_LOG_OPTION', 'trpl_activity_log' );
 define( 'TRPL_SCHEDULE_SETTINGS_OPTION', 'trpl_schedule_settings' );
 define( 'TRPL_SCHEDULE_STATUS_OPTION', 'trpl_schedule_status' );
+define( 'TRPL_CACHE_VERSION_OPTION', 'trpl_cache_version' );
 define( 'TRPL_TRASH_DIRNAME', 'trpl-trash' );
 define( 'TRPL_SCHEDULE_EVENT_HOOK', 'trpl_run_scheduled_cleanup' );
 define( 'TRPL_SCHEDULE_PROCESS_HOOK', 'trpl_process_scheduled_cleanup' );
@@ -517,12 +518,53 @@ function trpl_get_upload_base_url() {
 	return trailingslashit( $upload_dir['baseurl'] );
 }
 
+function trpl_get_cache_version() {
+	$version = (int) get_option( TRPL_CACHE_VERSION_OPTION, 1 );
+
+	return $version > 0 ? $version : 1;
+}
+
+function trpl_get_cache_key( $suffix ) {
+	return 'trpl_' . sanitize_key( $suffix ) . '_' . trpl_get_cache_version();
+}
+
+function trpl_get_cache_ttl() {
+	return 10 * MINUTE_IN_SECONDS;
+}
+
+function trpl_bump_cache_version() {
+	update_option( TRPL_CACHE_VERSION_OPTION, time(), false );
+}
+
+function trpl_maybe_invalidate_media_cache_by_meta( $meta_id, $object_id, $meta_key ) {
+	if ( ! get_post( $object_id ) ) {
+		return;
+	}
+
+	if ( in_array( $meta_key, array( '_wp_attached_file', '_wp_attachment_metadata', '_thumbnail_id' ), true ) ) {
+		trpl_bump_cache_version();
+	}
+}
+
+add_action( 'add_attachment', 'trpl_bump_cache_version' );
+add_action( 'edit_attachment', 'trpl_bump_cache_version' );
+add_action( 'delete_attachment', 'trpl_bump_cache_version' );
+add_action( 'added_post_meta', 'trpl_maybe_invalidate_media_cache_by_meta', 10, 3 );
+add_action( 'updated_post_meta', 'trpl_maybe_invalidate_media_cache_by_meta', 10, 3 );
+add_action( 'deleted_post_meta', 'trpl_maybe_invalidate_media_cache_by_meta', 10, 3 );
+
 function trpl_get_trash_base_dir() {
 	return trpl_get_upload_base_dir() . TRPL_TRASH_DIRNAME . '/';
 }
 
 function trpl_get_all_image_sizes() {
 	global $_wp_additional_image_sizes;
+
+	static $sizes = null;
+
+	if ( null !== $sizes ) {
+		return $sizes;
+	}
 
 	$sizes = array();
 
@@ -548,6 +590,12 @@ function trpl_get_all_image_sizes() {
 }
 
 function trpl_get_size_dimension_lookup() {
+	static $lookup = null;
+
+	if ( null !== $lookup ) {
+		return $lookup;
+	}
+
 	$lookup = array();
 
 	foreach ( trpl_get_all_image_sizes() as $size_name => $details ) {
@@ -641,6 +689,11 @@ function trpl_relative_path_to_folder( $relative_path ) {
 }
 
 function trpl_get_upload_folders_with_count() {
+	$cached_folders = get_transient( trpl_get_cache_key( 'upload_folders' ) );
+	if ( is_array( $cached_folders ) ) {
+		return $cached_folders;
+	}
+
 	$attachments = trpl_get_image_attachment_ids();
 	$folders = array();
 
@@ -658,11 +711,17 @@ function trpl_get_upload_folders_with_count() {
 	}
 
 	krsort( $folders );
+	set_transient( trpl_get_cache_key( 'upload_folders' ), $folders, trpl_get_cache_ttl() );
 
 	return $folders;
 }
 
 function trpl_get_available_dates() {
+	$cached_dates = get_transient( trpl_get_cache_key( 'available_dates' ) );
+	if ( is_array( $cached_dates ) ) {
+		return $cached_dates;
+	}
+
 	$folders = trpl_get_upload_folders_with_count();
 	$available_dates = array();
 
@@ -675,10 +734,17 @@ function trpl_get_available_dates() {
 		}
 	}
 
+	set_transient( trpl_get_cache_key( 'available_dates' ), $available_dates, trpl_get_cache_ttl() );
+
 	return $available_dates;
 }
 
 function trpl_get_image_attachment_ids() {
+	$cached_attachments = get_transient( trpl_get_cache_key( 'image_attachment_ids' ) );
+	if ( is_array( $cached_attachments ) ) {
+		return array_map( 'intval', $cached_attachments );
+	}
+
 	$attachments = get_posts(
 		array(
 			'post_type' => 'attachment',
@@ -691,6 +757,8 @@ function trpl_get_image_attachment_ids() {
 			'no_found_rows' => true,
 		)
 	);
+
+	set_transient( trpl_get_cache_key( 'image_attachment_ids' ), $attachments, trpl_get_cache_ttl() );
 
 	return array_map( 'intval', $attachments );
 }
@@ -711,10 +779,17 @@ function trpl_attachment_matches_folders( $attachment_id, $selected_folders ) {
 }
 
 function trpl_get_attachment_files( $attachment_id ) {
+	static $records_cache = array();
+
+	if ( isset( $records_cache[ $attachment_id ] ) ) {
+		return $records_cache[ $attachment_id ];
+	}
+
 	$records = array();
 	$relative_path = get_post_meta( $attachment_id, '_wp_attached_file', true );
 
 	if ( empty( $relative_path ) ) {
+		$records_cache[ $attachment_id ] = $records;
 		return $records;
 	}
 
@@ -783,6 +858,8 @@ function trpl_get_attachment_files( $attachment_id ) {
 		}
 	}
 
+	$records_cache[ $attachment_id ] = $records;
+
 	return $records;
 }
 
@@ -833,25 +910,22 @@ function trpl_build_regeneration_attachment_ids( $selected_folders ) {
 }
 
 function trpl_is_attachment_used( $attachment_id ) {
-	global $wpdb;
+	static $usage_results = array();
+
+	if ( isset( $usage_results[ $attachment_id ] ) ) {
+		return $usage_results[ $attachment_id ];
+	}
 
 	$attachment = get_post( $attachment_id );
 	if ( ! $attachment ) {
+		$usage_results[ $attachment_id ] = false;
 		return false;
 	}
 
-	if ( ! empty( $attachment->post_parent ) && 'trash' !== get_post_status( $attachment->post_parent ) ) {
-		return true;
-	}
+	$usage_lookup = trpl_get_attachment_usage_lookup();
 
-	$featured_usage = (int) $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = '_thumbnail_id' AND meta_value = %s",
-			(string) $attachment_id
-		)
-	);
-
-	if ( $featured_usage > 0 ) {
+	if ( isset( $usage_lookup[ $attachment_id ] ) ) {
+		$usage_results[ $attachment_id ] = true;
 		return true;
 	}
 
@@ -865,32 +939,119 @@ function trpl_is_attachment_used( $attachment_id ) {
 	);
 
 	foreach ( array_unique( $needles ) as $needle ) {
-		$like = '%' . $wpdb->esc_like( $needle ) . '%';
-
-		$content_usage = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_type != 'attachment' AND post_status NOT IN ('trash', 'auto-draft') AND post_content LIKE %s",
-				$like
-			)
-		);
-
-		if ( $content_usage > 0 ) {
-			return true;
-		}
-
-		$builder_usage = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$wpdb->postmeta} pm INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id WHERE p.post_type != 'attachment' AND p.post_status NOT IN ('trash', 'auto-draft') AND pm.meta_value LIKE %s",
-				$like
-			)
-		);
-
-		if ( $builder_usage > 0 ) {
+		if ( trpl_attachment_usage_search_exists( $needle ) ) {
+			$usage_results[ $attachment_id ] = true;
 			return true;
 		}
 	}
 
+	$usage_results[ $attachment_id ] = false;
+
 	return false;
+}
+
+function trpl_get_attachment_usage_lookup() {
+	global $wpdb;
+	static $lookup = null;
+
+	if ( null !== $lookup ) {
+		return $lookup;
+	}
+
+	$lookup = array();
+	$attachment_ids = trpl_get_image_attachment_ids();
+
+	if ( empty( $attachment_ids ) ) {
+		return $lookup;
+	}
+
+	$cache_key = 'attachment_usage_lookup_' . trpl_get_cache_version();
+	$cached_lookup = wp_cache_get( $cache_key, 'thumbnail_remover' );
+
+	if ( is_array( $cached_lookup ) ) {
+		$lookup = $cached_lookup;
+		return $lookup;
+	}
+
+	$featured_ids = $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key = '_thumbnail_id' AND meta_value != ''" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+
+	foreach ( $featured_ids as $featured_id ) {
+		$lookup[ (int) $featured_id ] = true;
+	}
+
+	$parent_statuses = trpl_get_usage_query_statuses();
+	$status_placeholders = implode( ', ', array_fill( 0, count( $parent_statuses ), '%s' ) );
+	$parented_ids = $wpdb->get_col(
+		$wpdb->prepare(
+			"
+			SELECT child.ID
+			FROM {$wpdb->posts} child
+			INNER JOIN {$wpdb->posts} parent ON parent.ID = child.post_parent
+			WHERE child.post_type = 'attachment'
+				AND child.post_status = 'inherit'
+				AND child.post_parent > 0
+				AND parent.post_status IN ($status_placeholders)
+			",
+			$parent_statuses
+		)
+	); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+
+	foreach ( $parented_ids as $parented_id ) {
+		$lookup[ (int) $parented_id ] = true;
+	}
+
+	wp_cache_set( $cache_key, $lookup, 'thumbnail_remover', trpl_get_cache_ttl() );
+
+	return $lookup;
+}
+
+function trpl_attachment_usage_search_exists( $needle ) {
+	global $wpdb;
+	static $search_cache = array();
+
+	if ( isset( $search_cache[ $needle ] ) ) {
+		return $search_cache[ $needle ];
+	}
+
+	$cache_key = 'attachment_usage_search_' . md5( $needle . '|' . trpl_get_cache_version() );
+	$cached_result = wp_cache_get( $cache_key, 'thumbnail_remover' );
+
+	if ( false !== $cached_result ) {
+		$search_cache[ $needle ] = (bool) $cached_result;
+		return $search_cache[ $needle ];
+	}
+
+	$like = '%' . $wpdb->esc_like( $needle ) . '%';
+	$result = (int) $wpdb->get_var(
+		$wpdb->prepare(
+			"
+			SELECT (
+				EXISTS(
+					SELECT 1
+					FROM {$wpdb->posts}
+					WHERE post_type != 'attachment'
+						AND post_status NOT IN ('trash', 'auto-draft')
+						AND post_content LIKE %s
+				)
+				OR EXISTS(
+					SELECT 1
+					FROM {$wpdb->postmeta} pm
+					INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+					WHERE p.post_type != 'attachment'
+						AND p.post_status NOT IN ('trash', 'auto-draft')
+						AND pm.meta_value LIKE %s
+				)
+			)
+			",
+			$like,
+			$like
+		)
+	); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching
+
+	$search_cache[ $needle ] = $result > 0;
+	wp_cache_set( $cache_key, $search_cache[ $needle ], 'thumbnail_remover', trpl_get_cache_ttl() );
+
+	return $search_cache[ $needle ];
 }
 
 function trpl_build_unused_media_entry( $attachment_id ) {
