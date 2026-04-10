@@ -678,6 +678,133 @@ function trpl_normalize_disabled_sizes( $sizes ) {
 	return trpl_normalize_text_list( $sizes, true );
 }
 
+function trpl_get_filter_format_options() {
+	return array(
+		'all' => __( 'All formats', 'thumbnail-remover' ),
+		'jpeg' => __( 'JPEG', 'thumbnail-remover' ),
+		'png' => __( 'PNG', 'thumbnail-remover' ),
+		'gif' => __( 'GIF', 'thumbnail-remover' ),
+		'webp' => __( 'WebP', 'thumbnail-remover' ),
+		'avif' => __( 'AVIF', 'thumbnail-remover' ),
+	);
+}
+
+function trpl_get_filter_usage_options() {
+	return array(
+		'all' => __( 'All attachments', 'thumbnail-remover' ),
+		'unused' => __( 'Probably unused only', 'thumbnail-remover' ),
+		'used' => __( 'Used attachments only', 'thumbnail-remover' ),
+	);
+}
+
+function trpl_get_filter_source_options() {
+	return array(
+		'all' => __( 'Tracked + orphan thumbnails', 'thumbnail-remover' ),
+		'tracked' => __( 'Metadata-tracked thumbnails only', 'thumbnail-remover' ),
+		'orphan' => __( 'Orphan thumbnails only', 'thumbnail-remover' ),
+	);
+}
+
+function trpl_get_advanced_filter_defaults() {
+	return array(
+		'format' => 'all',
+		'usage' => 'all',
+		'source' => 'all',
+	);
+}
+
+function trpl_sanitize_advanced_filters( $raw_filters, $args = array() ) {
+	$filters = wp_parse_args(
+		is_array( $raw_filters ) ? $raw_filters : array(),
+		trpl_get_advanced_filter_defaults()
+	);
+	$args = wp_parse_args(
+		$args,
+		array(
+			'allow_source' => true,
+		)
+	);
+
+	$filters['format'] = sanitize_key( $filters['format'] );
+	$filters['usage'] = sanitize_key( $filters['usage'] );
+	$filters['source'] = sanitize_key( $filters['source'] );
+
+	if ( ! isset( trpl_get_filter_format_options()[ $filters['format'] ] ) ) {
+		$filters['format'] = 'all';
+	}
+
+	if ( ! isset( trpl_get_filter_usage_options()[ $filters['usage'] ] ) ) {
+		$filters['usage'] = 'all';
+	}
+
+	if ( ! $args['allow_source'] || ! isset( trpl_get_filter_source_options()[ $filters['source'] ] ) ) {
+		$filters['source'] = 'all';
+	}
+
+	return $filters;
+}
+
+function trpl_get_request_advanced_filters( $args = array() ) {
+	$filters = array(
+		'format' => trpl_get_post_scalar_input( 'filter_format', 'all' ),
+		'usage' => trpl_get_post_scalar_input( 'filter_usage', 'all' ),
+		'source' => trpl_get_post_scalar_input( 'filter_source', 'all' ),
+	);
+
+	return trpl_sanitize_advanced_filters( $filters, $args );
+}
+
+function trpl_get_attachment_format( $attachment_id ) {
+	static $format_cache = array();
+
+	if ( isset( $format_cache[ $attachment_id ] ) ) {
+		return $format_cache[ $attachment_id ];
+	}
+
+	$relative_path = get_post_meta( $attachment_id, '_wp_attached_file', true );
+	$extension = strtolower( pathinfo( (string) $relative_path, PATHINFO_EXTENSION ) );
+
+	if ( 'jpg' === $extension ) {
+		$extension = 'jpeg';
+	}
+
+	$format_cache[ $attachment_id ] = in_array( $extension, array( 'jpeg', 'png', 'gif', 'webp', 'avif' ), true ) ? $extension : '';
+
+	return $format_cache[ $attachment_id ];
+}
+
+function trpl_attachment_matches_advanced_filters( $attachment_id, $filters ) {
+	$filters = trpl_sanitize_advanced_filters( $filters );
+
+	if ( 'all' !== $filters['format'] && trpl_get_attachment_format( $attachment_id ) !== $filters['format'] ) {
+		return false;
+	}
+
+	if ( 'unused' === $filters['usage'] && trpl_is_attachment_used( $attachment_id ) ) {
+		return false;
+	}
+
+	if ( 'used' === $filters['usage'] && ! trpl_is_attachment_used( $attachment_id ) ) {
+		return false;
+	}
+
+	return true;
+}
+
+function trpl_record_matches_source_filter( $record, $filters ) {
+	$filters = trpl_sanitize_advanced_filters( $filters );
+
+	if ( 'orphan' === $filters['source'] ) {
+		return ! empty( $record['is_orphan'] );
+	}
+
+	if ( 'tracked' === $filters['source'] ) {
+		return empty( $record['is_orphan'] );
+	}
+
+	return true;
+}
+
 function trpl_relative_path_to_folder( $relative_path ) {
 	$parts = explode( '/', ltrim( $relative_path, '/' ) );
 
@@ -879,15 +1006,35 @@ function trpl_record_matches_selected_sizes( $record, $selected_sizes ) {
 	return false;
 }
 
-function trpl_build_removal_candidates( $selected_sizes, $selected_folders ) {
-	$candidates = array();
+function trpl_get_filtered_attachment_ids( $selected_folders, $filters = array() ) {
+	$filters = trpl_sanitize_advanced_filters( $filters );
+	$attachment_ids = array();
 
 	foreach ( trpl_get_image_attachment_ids() as $attachment_id ) {
 		if ( ! trpl_attachment_matches_folders( $attachment_id, $selected_folders ) ) {
 			continue;
 		}
 
+		if ( ! trpl_attachment_matches_advanced_filters( $attachment_id, $filters ) ) {
+			continue;
+		}
+
+		$attachment_ids[] = $attachment_id;
+	}
+
+	return $attachment_ids;
+}
+
+function trpl_build_removal_candidates( $selected_sizes, $selected_folders, $filters = array() ) {
+	$filters = trpl_sanitize_advanced_filters( $filters );
+	$candidates = array();
+
+	foreach ( trpl_get_filtered_attachment_ids( $selected_folders, $filters ) as $attachment_id ) {
 		foreach ( trpl_get_attachment_files( $attachment_id ) as $record ) {
+			if ( ! trpl_record_matches_source_filter( $record, $filters ) ) {
+				continue;
+			}
+
 			if ( trpl_record_matches_selected_sizes( $record, $selected_sizes ) && file_exists( $record['path'] ) ) {
 				$candidates[] = $record;
 			}
@@ -897,16 +1044,8 @@ function trpl_build_removal_candidates( $selected_sizes, $selected_folders ) {
 	return $candidates;
 }
 
-function trpl_build_regeneration_attachment_ids( $selected_folders ) {
-	$attachment_ids = array();
-
-	foreach ( trpl_get_image_attachment_ids() as $attachment_id ) {
-		if ( trpl_attachment_matches_folders( $attachment_id, $selected_folders ) ) {
-			$attachment_ids[] = $attachment_id;
-		}
-	}
-
-	return $attachment_ids;
+function trpl_build_regeneration_attachment_ids( $selected_folders, $filters = array() ) {
+	return trpl_get_filtered_attachment_ids( $selected_folders, $filters );
 }
 
 function trpl_is_attachment_used( $attachment_id ) {
@@ -1369,14 +1508,16 @@ function trpl_filter_size_analytics( $analytics ) {
 	return $analytics;
 }
 
-function trpl_create_analysis_job( $selected_folders ) {
-	$attachment_ids = trpl_build_regeneration_attachment_ids( $selected_folders );
+function trpl_create_analysis_job( $selected_folders, $filters = array() ) {
+	$filters = trpl_sanitize_advanced_filters( $filters );
+	$attachment_ids = trpl_build_regeneration_attachment_ids( $selected_folders, $filters );
 
 	return trpl_start_job(
 		'analysis',
 		array(
 			'attachment_ids' => $attachment_ids,
 			'selected_folders' => $selected_folders,
+			'filters' => $filters,
 			'processed' => 0,
 			'total' => count( $attachment_ids ),
 			'summary' => array(
@@ -1398,6 +1539,7 @@ function trpl_process_analysis_job( &$job, $batch_size = 12 ) {
 	$attachment_ids = $job['attachment_ids'];
 	$summary = $job['summary'];
 	$registered_sizes = trpl_get_all_image_sizes();
+	$filters = isset( $job['filters'] ) ? trpl_sanitize_advanced_filters( $job['filters'] ) : trpl_get_advanced_filter_defaults();
 	$chunk = array_slice( $attachment_ids, $job['processed'], $batch_size );
 
 	foreach ( $chunk as $attachment_id ) {
@@ -1408,6 +1550,10 @@ function trpl_process_analysis_job( &$job, $batch_size = 12 ) {
 		$attachment_date = $attachment_post ? mysql2date( 'Y-m-d H:i:s', $attachment_post->post_date ) : '';
 
 		foreach ( trpl_get_attachment_files( $attachment_id ) as $record ) {
+			if ( ! trpl_record_matches_source_filter( $record, $filters ) ) {
+				continue;
+			}
+
 			$summary['thumbnail_files']++;
 			$summary['thumbnail_bytes'] += (int) $record['bytes'];
 
@@ -1433,21 +1579,23 @@ function trpl_process_analysis_job( &$job, $batch_size = 12 ) {
 			}
 		}
 
-		foreach ( array_keys( $registered_sizes ) as $size_name ) {
-			if ( ! isset( $metadata_sizes[ $size_name ] ) ) {
-				$summary['missing_sizes']++;
-				if ( ! isset( $summary['size_analytics'][ $size_name ] ) ) {
-					$summary['size_analytics'][ $size_name ] = array(
-						'label' => $size_name,
-						'dimensions' => '',
-						'count' => 0,
-						'bytes' => 0,
-						'last_seen' => '',
-						'missing' => 0,
-						'orphans' => 0,
-					);
+		if ( 'orphan' !== $filters['source'] ) {
+			foreach ( array_keys( $registered_sizes ) as $size_name ) {
+				if ( ! isset( $metadata_sizes[ $size_name ] ) ) {
+					$summary['missing_sizes']++;
+					if ( ! isset( $summary['size_analytics'][ $size_name ] ) ) {
+						$summary['size_analytics'][ $size_name ] = array(
+							'label' => $size_name,
+							'dimensions' => '',
+							'count' => 0,
+							'bytes' => 0,
+							'last_seen' => '',
+							'missing' => 0,
+							'orphans' => 0,
+						);
+					}
+					$summary['size_analytics'][ $size_name ]['missing']++;
 				}
-				$summary['size_analytics'][ $size_name ]['missing']++;
 			}
 		}
 
@@ -1468,8 +1616,9 @@ function trpl_process_analysis_job( &$job, $batch_size = 12 ) {
 	return $job['processed'] >= $job['total'];
 }
 
-function trpl_create_delete_job( $selected_sizes, $selected_folders ) {
-	$candidates = trpl_build_removal_candidates( $selected_sizes, $selected_folders );
+function trpl_create_delete_job( $selected_sizes, $selected_folders, $filters = array() ) {
+	$filters = trpl_sanitize_advanced_filters( $filters );
+	$candidates = trpl_build_removal_candidates( $selected_sizes, $selected_folders, $filters );
 	$batch_id = trpl_create_trash_batch();
 
 	return trpl_start_job(
@@ -1480,6 +1629,7 @@ function trpl_create_delete_job( $selected_sizes, $selected_folders ) {
 			'total' => count( $candidates ),
 			'selected_sizes' => $selected_sizes,
 			'selected_folders' => $selected_folders,
+			'filters' => $filters,
 			'trash_batch_id' => $batch_id,
 			'result' => array(
 				'moved' => 0,
@@ -1508,8 +1658,9 @@ function trpl_process_delete_job( &$job, $batch_size = 40 ) {
 	return $job['processed'] >= $job['total'];
 }
 
-function trpl_create_regenerate_job( $selected_sizes, $selected_folders ) {
-	$attachment_ids = trpl_build_regeneration_attachment_ids( $selected_folders );
+function trpl_create_regenerate_job( $selected_sizes, $selected_folders, $filters = array() ) {
+	$filters = trpl_sanitize_advanced_filters( $filters, array( 'allow_source' => false ) );
+	$attachment_ids = trpl_build_regeneration_attachment_ids( $selected_folders, $filters );
 
 	return trpl_start_job(
 		'regenerate',
@@ -1517,6 +1668,7 @@ function trpl_create_regenerate_job( $selected_sizes, $selected_folders ) {
 			'attachment_ids' => $attachment_ids,
 			'selected_sizes' => $selected_sizes,
 			'selected_folders' => $selected_folders,
+			'filters' => $filters,
 			'processed' => 0,
 			'total' => count( $attachment_ids ),
 			'result' => array(
@@ -1584,7 +1736,8 @@ function trpl_ajax_preview_delete() {
 	$raw_folders = trpl_get_post_array_input( 'folders' );
 	$selected_sizes = trpl_normalize_text_list( $raw_sizes );
 	$selected_folders = trpl_normalize_text_list( $raw_folders );
-	$candidates = trpl_build_removal_candidates( $selected_sizes, $selected_folders );
+	$filters = trpl_get_request_advanced_filters();
+	$candidates = trpl_build_removal_candidates( $selected_sizes, $selected_folders, $filters );
 	$summary = trpl_create_preview_summary( $candidates );
 	trpl_add_activity_log(
 		array(
@@ -1617,8 +1770,8 @@ function trpl_ajax_start_analysis() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
 	trpl_require_manage_options();
 
-	$selected_folders = trpl_normalize_text_list( trpl_get_post_array_input( 'folders' ) );
-	$job = trpl_create_analysis_job( $selected_folders );
+	$filters = trpl_get_request_advanced_filters();
+	$job = trpl_create_analysis_job( array(), $filters );
 
 	wp_send_json_success(
 		array(
@@ -1682,7 +1835,8 @@ function trpl_ajax_start_delete() {
 
 	$selected_sizes = trpl_normalize_text_list( trpl_get_post_array_input( 'sizes' ) );
 	$selected_folders = trpl_normalize_text_list( trpl_get_post_array_input( 'folders' ) );
-	$job = trpl_create_delete_job( $selected_sizes, $selected_folders );
+	$filters = trpl_get_request_advanced_filters();
+	$job = trpl_create_delete_job( $selected_sizes, $selected_folders, $filters );
 
 	wp_send_json_success(
 		array(
@@ -1772,7 +1926,8 @@ function trpl_ajax_start_regenerate() {
 
 	$selected_sizes = trpl_normalize_text_list( trpl_get_post_array_input( 'sizes' ) );
 	$selected_folders = trpl_normalize_text_list( trpl_get_post_array_input( 'folders' ) );
-	$job = trpl_create_regenerate_job( $selected_sizes, $selected_folders );
+	$filters = trpl_get_request_advanced_filters( array( 'allow_source' => false ) );
+	$job = trpl_create_regenerate_job( $selected_sizes, $selected_folders, $filters );
 
 	wp_send_json_success(
 		array(
@@ -1944,6 +2099,68 @@ function trpl_render_checkbox_list( $items, $name, $current_values = array(), $f
 			wp_kses_post( $label )
 		);
 	}
+}
+
+function trpl_render_select_field( $id, $name, $label, $value, $options ) {
+	?>
+	<p>
+		<label for="<?php echo esc_attr( $id ); ?>"><strong><?php echo esc_html( $label ); ?></strong></label><br>
+		<select id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $name ); ?>">
+			<?php foreach ( $options as $option_value => $option_label ) : ?>
+				<option value="<?php echo esc_attr( $option_value ); ?>" <?php selected( $value, $option_value ); ?>><?php echo esc_html( $option_label ); ?></option>
+			<?php endforeach; ?>
+		</select>
+	</p>
+	<?php
+}
+
+function trpl_render_advanced_filter_fields( $context, $filters, $args = array() ) {
+	$args = wp_parse_args(
+		$args,
+		array(
+			'include_source' => false,
+		)
+	);
+	$filters = trpl_sanitize_advanced_filters(
+		$filters,
+		array(
+			'allow_source' => $args['include_source'],
+		)
+	);
+	?>
+	<div class="trpl-advanced-filters">
+		<h3><?php esc_html_e( 'Advanced Filters', 'thumbnail-remover' ); ?></h3>
+		<div class="trpl-inline-fields">
+			<?php
+			trpl_render_select_field(
+				'trpl-' . $context . '-format-filter',
+				'filter_format',
+				__( 'Image format', 'thumbnail-remover' ),
+				$filters['format'],
+				trpl_get_filter_format_options()
+			);
+			trpl_render_select_field(
+				'trpl-' . $context . '-usage-filter',
+				'filter_usage',
+				__( 'Attachment usage', 'thumbnail-remover' ),
+				$filters['usage'],
+				trpl_get_filter_usage_options()
+			);
+			?>
+			<?php if ( $args['include_source'] ) : ?>
+				<?php
+				trpl_render_select_field(
+					'trpl-' . $context . '-source-filter',
+					'filter_source',
+					__( 'Thumbnail source', 'thumbnail-remover' ),
+					$filters['source'],
+					trpl_get_filter_source_options()
+				);
+				?>
+			<?php endif; ?>
+		</div>
+	</div>
+	<?php
 }
 
 function trpl_format_size_label( $size_name, $details ) {
@@ -2245,6 +2462,7 @@ function trpl_admin_page() {
 	$activity_log = trpl_get_activity_log();
 	$activity_summary = trpl_get_activity_report_summary( $activity_log );
 	$ad_slot_definitions = trpl_get_admin_ad_slot_definitions();
+	$default_filters = trpl_get_advanced_filter_defaults();
 	?>
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Thumbnail Manager', 'thumbnail-remover' ); ?></h1>
@@ -2255,9 +2473,12 @@ function trpl_admin_page() {
 				<div class="wrt-box">
 				<h2><?php esc_html_e( 'Library Analysis', 'thumbnail-remover' ); ?></h2>
 				<p><?php esc_html_e( 'Run a batch analysis to see per-size analytics, orphan thumbnails, missing sizes, and probably unused media across your uploads.', 'thumbnail-remover' ); ?></p>
-				<p>
-					<button type="button" class="button button-primary" id="trpl-run-analysis"><?php esc_html_e( 'Run Full Analysis', 'thumbnail-remover' ); ?></button>
-				</p>
+				<form id="trpl-analysis-form">
+					<?php trpl_render_advanced_filter_fields( 'analysis', $default_filters, array( 'include_source' => true ) ); ?>
+					<p>
+						<button type="button" class="button button-primary" id="trpl-run-analysis"><?php esc_html_e( 'Run Full Analysis', 'thumbnail-remover' ); ?></button>
+					</p>
+				</form>
 				<div class="trpl-progress" id="trpl-analysis-progress" hidden>
 					<div class="trpl-progress-bar"><span></span></div>
 					<p class="trpl-progress-text">0%</p>
@@ -2365,6 +2586,7 @@ function trpl_admin_page() {
 					<ul class="wrt-list">
 						<?php trpl_render_checkbox_list( $folders, 'folders', array(), 'trpl_format_folder_label' ); ?>
 					</ul>
+					<?php trpl_render_advanced_filter_fields( 'delete', $default_filters, array( 'include_source' => true ) ); ?>
 
 					<p class="trpl-action-row">
 						<button type="button" class="button" id="trpl-preview-delete"><?php esc_html_e( 'Preview Cleanup', 'thumbnail-remover' ); ?></button>
@@ -2432,6 +2654,7 @@ function trpl_admin_page() {
 					<ul class="wrt-list">
 						<?php trpl_render_checkbox_list( $folders, 'regen_folders', array(), 'trpl_format_folder_label' ); ?>
 					</ul>
+					<?php trpl_render_advanced_filter_fields( 'regenerate', $default_filters ); ?>
 					<p><button type="submit" class="button button-primary"><?php esc_html_e( 'Regenerate Missing Sizes', 'thumbnail-remover' ); ?></button></p>
 				</form>
 				<div class="trpl-progress" id="trpl-regenerate-progress" hidden>

@@ -33,6 +33,7 @@ Instead of removing thumbnails with a single irreversible step, the current rele
 - Missing-size regeneration
 - Per-size analytics
 - Reporting and recent activity logs
+- Advanced filters for format, usage status, and orphan-only cleanup
 - Existing image-size disable controls
 - Zip backups for uploads
 - Scheduled cleanup with configurable frequency and scope
@@ -89,6 +90,14 @@ See per-size analytics including:
 - Orphan count
 - Last seen attachment date
 
+### Advanced Filtering
+
+Narrow analysis, cleanup, and regeneration jobs with extra filters for:
+
+- Original image format such as JPEG, PNG, GIF, WebP, or AVIF
+- Attachment usage status, including probably unused attachments only
+- Thumbnail source, so you can isolate orphan files or metadata-tracked sizes before moving anything to Trash
+
 ### Reporting and Logs
 
 Review recent media operations from the admin screen, including analysis runs, previews, cleanup batches, restores, regenerations, backups, and WP-Cron cleanup activity. The reporting view also summarizes recovered storage, regenerated sizes, restore totals, and backup runs.
@@ -137,6 +146,10 @@ Yes. You can disable selected registered image sizes for future uploads. This on
 
 Yes. The regeneration tool can rebuild missing image sizes in batches, which is useful after re-enabling sizes or cleaning up incomplete media libraries.
 
+### Can I filter cleanup jobs to only orphan thumbnails or probably unused media?
+
+Yes. The advanced filters let you limit analysis, cleanup, and regeneration to specific image formats, usage status, and orphan-versus-tracked thumbnail sources.
+
 ### Is the plugin safe for larger media libraries?
 
 It is designed to be safer on larger sites than one-click cleanup tools. Analysis, cleanup, and regeneration run in batches and show progress in the admin UI to reduce timeout issues.
@@ -172,6 +185,12 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 ![Regenerate Missing Sizes](assets/screenshots/screenshot-4.png)
 
 ## Changelog
+
+### Unreleased
+
+- Added advanced filters for image format, attachment usage, and orphan-only versus tracked thumbnail cleanup
+- Reused the same filters across analysis, preview cleanup, and regeneration workflows
+- Updated the admin UI and docs to explain the new filtering options
 
 ### 2.2.0
 
