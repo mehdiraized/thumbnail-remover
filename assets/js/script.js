@@ -7,6 +7,15 @@ jQuery(function ($) {
 			.get();
 	}
 
+	function collectFilters(formSelector) {
+		const $form = $(formSelector);
+		return {
+			filter_format: $form.find('[name="filter_format"]').val() || "all",
+			filter_usage: $form.find('[name="filter_usage"]').val() || "all",
+			filter_source: $form.find('[name="filter_source"]').val() || "all",
+		};
+	}
+
 	function setProgress($container, value) {
 		const progress = Math.max(0, Math.min(100, Number(value) || 0));
 		$container.prop("hidden", false);
@@ -184,7 +193,7 @@ jQuery(function ($) {
 		runJob({
 			startAction: "trpl_start_analysis",
 			processAction: "trpl_process_analysis",
-			startData: {},
+			startData: collectFilters("#trpl-analysis-form"),
 			onProgress: function (data) {
 				setProgress($progress, data.progress);
 			},
@@ -205,7 +214,7 @@ jQuery(function ($) {
 		const $results = $("#trpl-preview-results");
 		$results.html('<p>' + thumbnailManager.i18n.processing + "</p>");
 
-		ajaxPost("trpl_preview_delete", { sizes: sizes, folders: folders })
+		ajaxPost("trpl_preview_delete", $.extend({ sizes: sizes, folders: folders }, collectFilters("#trpl-delete-form")))
 			.done(function (response) {
 				if (!response.success) {
 					renderNotice($results, response.data && response.data.message ? response.data.message : thumbnailManager.i18n.error, "error");
@@ -234,7 +243,7 @@ jQuery(function ($) {
 		runJob({
 			startAction: "trpl_start_delete",
 			processAction: "trpl_process_delete",
-			startData: { sizes: sizes, folders: folders },
+			startData: $.extend({ sizes: sizes, folders: folders }, collectFilters("#trpl-delete-form")),
 			onProgress: function (data) {
 				setProgress($progress, data.progress);
 			},
@@ -304,7 +313,7 @@ jQuery(function ($) {
 		runJob({
 			startAction: "trpl_start_regenerate",
 			processAction: "trpl_process_regenerate",
-			startData: { sizes: sizes, folders: folders },
+			startData: $.extend({ sizes: sizes, folders: folders }, collectFilters("#trpl-regenerate-form")),
 			onProgress: function (data) {
 				setProgress($progress, data.progress);
 			},

@@ -42,6 +42,7 @@ This release is built for site owners, developers, agencies, and anyone trying t
 * Regenerate missing sizes
 * Per-size analytics dashboard
 * Reporting and recent activity logs
+* Advanced filters for image format, usage status, and orphan-only cleanup
 * Image size disable controls for future uploads
 * Media backup export to zip
 * Scheduled cleanup powered by WP-Cron
@@ -74,6 +75,9 @@ Yes. The size-disable settings prevent selected image sizes from being generated
 = Can I regenerate missing sizes after enabling a size again? =
 Yes. Use the `Regenerate Missing Sizes` section to rebuild missing image sizes in batches.
 
+= Can I limit cleanup to only orphan thumbnails or probably unused media? =
+Yes. The advanced filters can narrow analysis, cleanup, and regeneration jobs by image format, attachment usage status, and whether the thumbnail files are metadata-tracked or orphaned.
+
 = Is the plugin suitable for larger media libraries? =
 Yes. Analysis, cleanup, and regeneration are processed in batches with visible progress to reduce timeout problems on larger WordPress sites.
 
@@ -103,6 +107,11 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 4. Batch regeneration of missing image sizes
 
 == Changelog ==
+
+= Unreleased =
+* Added advanced filters for image format, attachment usage, and orphan-only versus tracked cleanup
+* Reused the new filters across analysis, preview cleanup, and regeneration workflows
+* Updated the admin UI and documentation to explain the extra filtering controls
 
 = 2.2.0 =
 * Added a Reporting and Logs section with recent activity history

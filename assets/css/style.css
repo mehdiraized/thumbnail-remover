@@ -75,6 +75,18 @@
 	min-width: 180px;
 }
 
+.trpl-advanced-filters {
+	margin-top: 20px;
+	padding: 16px;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	background: #f8fbff;
+}
+
+.trpl-advanced-filters h3 {
+	margin-top: 0;
+}
+
 .trpl-action-row {
 	display: flex;
 	gap: 10px;
