@@ -235,6 +235,7 @@ jQuery(function ($) {
 
 		const sizes = collectValues('#trpl-delete-form input[name="sizes[]"]:checked');
 		const folders = collectValues('#trpl-delete-form input[name="folders[]"]:checked');
+		const backupBeforeDelete = $("#trpl-backup-before-delete").is(":checked") ? 1 : 0;
 		const $progress = $("#trpl-delete-progress");
 		const $results = $("#trpl-delete-results");
 		setProgress($progress, 0);
@@ -243,12 +244,13 @@ jQuery(function ($) {
 		runJob({
 			startAction: "trpl_start_delete",
 			processAction: "trpl_process_delete",
-			startData: $.extend({ sizes: sizes, folders: folders }, collectFilters("#trpl-delete-form")),
+			startData: $.extend({ sizes: sizes, folders: folders, backup_before_delete: backupBeforeDelete }, collectFilters("#trpl-delete-form")),
 			onProgress: function (data) {
 				setProgress($progress, data.progress);
 			},
 			onComplete: function (data, startData) {
 				hideProgress($progress);
+				const backupUrl = data.backup_url || startData.backup_url || "";
 				const message =
 					"Moved " +
 					(data.result.moved || 0) +
@@ -258,7 +260,8 @@ jQuery(function ($) {
 					(data.result.orphans || 0) +
 					". Trash batch: <code>" +
 					(startData.trash_batch_id || data.trash_batch_id || "") +
-					"</code>.";
+					"</code>." +
+					(backupUrl ? ' <a class="button button-secondary" href="' + backupUrl + '">Download Backup</a>' : "");
 				renderNotice($results, message, "success");
 			},
 			onError: function (error) {
