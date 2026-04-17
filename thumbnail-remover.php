@@ -4,7 +4,7 @@ Plugin Name: Thumbnail Remover and Size Manager
 Plugin URI: https://github.com/mehdiraized/thumbnail-remover/
 Description: Analyze, preview, trash, restore, regenerate, and manage WordPress thumbnails and image sizes from one screen.
 Short Description: Safely manage WordPress thumbnails with preview, trash, restore, analytics, orphan cleanup, unused media detection, and regeneration.
-Version: 2.2.2
+Version: 2.2.3
 Author: Mehdi Rezaei
 Author URI: https://mehd.ir
 License: GPLv2 or later
@@ -17,7 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'TRPL_VERSION', '2.2.2' );
+define( 'TRPL_VERSION', '2.2.3' );
 define( 'TRPL_DISABLED_SIZES_OPTION', 'trpl_disabled_image_sizes' );
 define( 'TRPL_JOBS_OPTION', 'trpl_jobs' );
 define( 'TRPL_ACTIVITY_LOG_OPTION', 'trpl_activity_log' );
