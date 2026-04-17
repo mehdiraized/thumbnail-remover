@@ -35,7 +35,7 @@ Instead of removing thumbnails with a single irreversible step, the current rele
 - Reporting and recent activity logs
 - Advanced filters for format, usage status, and orphan-only cleanup
 - Existing image-size disable controls
-- Zip backups for uploads
+- Zip backups for uploads and cleanup batches
 - Scheduled cleanup with configurable frequency and scope
 
 ## Main Features
@@ -52,6 +52,8 @@ Preview cleanup before acting. The plugin shows:
 ### Trash / Restore
 
 Matching thumbnails are moved into plugin Trash instead of being deleted permanently. You can restore a trash batch later from the same admin screen.
+
+Cleanup can also create a zip backup of the exact matching thumbnails before they are moved, and the backup remains downloadable from the Trash batch table.
 
 ### Batch Processing
 
@@ -114,7 +116,7 @@ Review recent media operations from the admin screen, including analysis runs, p
 
 1. Run **Full Analysis**
 2. Review per-size analytics, orphan counts, and probably unused media
-3. Create a backup zip if needed
+3. Keep the cleanup backup option enabled, or create a broader uploads backup if needed
 4. Use **Preview Cleanup**
 5. Move matching thumbnails to **Trash**
 6. Restore a batch if you need to reverse the cleanup
@@ -156,7 +158,7 @@ It is designed to be safer on larger sites than one-click cleanup tools. Analysi
 
 ### Can I back up uploads before cleanup?
 
-Yes. You can create a zip backup for all uploads or only a selected year/month uploads folder before making cleanup changes.
+Yes. Cleanup can create a zip backup of the exact matching thumbnails before moving them to Trash. You can also create a broader zip backup for all uploads or only a selected year/month uploads folder before making cleanup changes.
 
 ### Can I restore only one cleanup batch?
 
@@ -188,6 +190,8 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 
 ### Unreleased
 
+- Added optional zip backups for matching thumbnails before they are moved to plugin Trash
+- Stored cleanup backup links with Trash batches so previous cleanup backups remain downloadable
 - Added advanced filters for image format, attachment usage, and orphan-only versus tracked thumbnail cleanup
 - Reused the same filters across analysis, preview cleanup, and regeneration workflows
 - Updated the admin UI and docs to explain the new filtering options

@@ -19,6 +19,7 @@ Instead of deleting thumbnails blindly, the plugin now helps you:
 
 * Preview cleanup results before removing files
 * Move thumbnails to plugin Trash instead of deleting permanently
+* Create a zip backup of the exact matching thumbnails before moving them to Trash
 * Restore trashed thumbnails later if needed
 * Process large libraries in batches with visible progress
 * Detect orphan thumbnails left behind on disk
@@ -36,6 +37,7 @@ This release is built for site owners, developers, agencies, and anyone trying t
 
 * Dry run / preview before cleanup
 * Trash and Restore workflow for safer deletion
+* Optional zip backup before moving matching thumbnails to Trash
 * Batch processing with real progress for scan, cleanup, and regeneration
 * Unused media detection
 * Orphan thumbnail detection
@@ -82,7 +84,7 @@ Yes. The advanced filters can narrow analysis, cleanup, and regeneration jobs by
 Yes. Analysis, cleanup, and regeneration are processed in batches with visible progress to reduce timeout problems on larger WordPress sites.
 
 = Can I back up my files before cleanup? =
-Yes. You can create a zip backup for all uploads or for a selected year/month folder.
+Yes. You can create a zip backup for all uploads or for a selected year/month folder, and cleanup can also create a zip backup of the exact matching thumbnails before they are moved to plugin Trash.
 
 = Can I restore only one cleanup batch instead of everything? =
 Yes. Each cleanup run creates its own Trash batch, so you can restore a specific batch independently.
@@ -109,6 +111,8 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 == Changelog ==
 
 = Unreleased =
+* Added optional zip backups for matching thumbnails before they are moved to plugin Trash
+* Stored cleanup backup links with Trash batches so previous cleanup backups remain downloadable from the Trash and Restore table
 * Added advanced filters for image format, attachment usage, and orphan-only versus tracked cleanup
 * Reused the new filters across analysis, preview cleanup, and regeneration workflows
 * Updated the admin UI and documentation to explain the extra filtering controls

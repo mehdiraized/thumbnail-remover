@@ -518,6 +518,20 @@ function trpl_get_upload_base_url() {
 	return trailingslashit( $upload_dir['baseurl'] );
 }
 
+function trpl_upload_path_to_url( $path ) {
+	$base_dir = wp_normalize_path( trpl_get_upload_base_dir() );
+	$path = wp_normalize_path( $path );
+
+	if ( 0 !== strpos( $path, $base_dir ) ) {
+		return '';
+	}
+
+	$relative_path = ltrim( substr( $path, strlen( $base_dir ) ), '/' );
+	$encoded_path = implode( '/', array_map( 'rawurlencode', explode( '/', $relative_path ) ) );
+
+	return trpl_get_upload_base_url() . $encoded_path;
+}
+
 function trpl_get_cache_version() {
 	$version = (int) get_option( TRPL_CACHE_VERSION_OPTION, 1 );
 
@@ -1355,6 +1369,7 @@ function trpl_create_trash_batch() {
 	$batch_id = gmdate( 'Ymd-His' ) . '-' . wp_generate_password( 6, false, false );
 	$batch_dir = trpl_get_trash_base_dir() . $batch_id . '/';
 	trpl_ensure_directory( $batch_dir . 'files/' );
+	trpl_ensure_directory( $batch_dir . 'backups/' );
 
 	$manifest = array(
 		'id' => $batch_id,
@@ -1363,6 +1378,7 @@ function trpl_create_trash_batch() {
 		'status' => 'active',
 		'items' => array(),
 		'total_bytes' => 0,
+		'backup' => array(),
 	);
 	trpl_write_trash_manifest( $batch_id, $manifest );
 
@@ -1375,6 +1391,14 @@ function trpl_get_trash_manifest_path( $batch_id ) {
 
 function trpl_delete_trash_batch( $batch_id ) {
 	return trpl_delete_directory( trpl_get_trash_base_dir() . $batch_id );
+}
+
+function trpl_get_trash_batch_backup_url( $batch ) {
+	if ( empty( $batch['backup']['path'] ) ) {
+		return '';
+	}
+
+	return trpl_upload_path_to_url( trpl_get_upload_base_dir() . ltrim( $batch['backup']['path'], '/' ) );
 }
 
 function trpl_write_trash_manifest( $batch_id, $manifest ) {
@@ -1401,6 +1425,72 @@ function trpl_read_trash_manifest( $batch_id ) {
 
 	$manifest = json_decode( $filesystem->get_contents( $path ), true );
 	return is_array( $manifest ) ? $manifest : null;
+}
+
+function trpl_create_trash_batch_backup( $batch_id, $records ) {
+	$records = is_array( $records ) ? $records : array();
+
+	if ( empty( $records ) ) {
+		return array();
+	}
+
+	$batch_dir = trpl_get_trash_base_dir() . $batch_id . '/';
+	$backup_dir = $batch_dir . 'backups/';
+	trpl_ensure_directory( $backup_dir );
+
+	$zip_file = $backup_dir . 'removed-thumbnails-' . $batch_id . '.zip';
+	$upload_base_dir = trpl_get_upload_base_dir();
+	$file_paths = array();
+	$total_bytes = 0;
+
+	foreach ( $records as $record ) {
+		$file_path = isset( $record['path'] ) ? (string) $record['path'] : '';
+
+		if ( ! $file_path || ! file_exists( $file_path ) || ! is_file( $file_path ) || ! trpl_is_supported_image_path( $file_path ) ) {
+			continue;
+		}
+
+		$normalized_path = wp_normalize_path( $file_path );
+		if ( 0 !== strpos( $normalized_path, wp_normalize_path( $upload_base_dir ) ) ) {
+			continue;
+		}
+
+		$file_paths[] = $file_path;
+		$total_bytes += (int) filesize( $file_path );
+	}
+
+	if ( empty( $file_paths ) ) {
+		return array();
+	}
+
+	if ( class_exists( 'ZipArchive' ) ) {
+		$zip = new ZipArchive();
+		if ( true !== $zip->open( $zip_file, ZipArchive::CREATE | ZipArchive::OVERWRITE ) ) {
+			return false;
+		}
+
+		foreach ( $file_paths as $file_path ) {
+			$relative_path = ltrim( str_replace( wp_normalize_path( $upload_base_dir ), '', wp_normalize_path( $file_path ) ), '/' );
+			$zip->addFile( $file_path, $relative_path );
+		}
+
+		$zip->close();
+	} else {
+		require_once ABSPATH . 'wp-admin/includes/class-pclzip.php';
+		$archive = new PclZip( $zip_file );
+		$result = $archive->create( $file_paths, PCLZIP_OPT_REMOVE_PATH, $upload_base_dir );
+		if ( 0 === $result ) {
+			return false;
+		}
+	}
+
+	return array(
+		'path' => ltrim( str_replace( wp_normalize_path( $upload_base_dir ), '', wp_normalize_path( $zip_file ) ), '/' ),
+		'filename' => basename( $zip_file ),
+		'files' => count( $file_paths ),
+		'bytes' => $total_bytes,
+		'created_at' => time(),
+	);
 }
 
 function trpl_move_file_to_trash( $batch_id, $record ) {
@@ -1616,10 +1706,27 @@ function trpl_process_analysis_job( &$job, $batch_size = 12 ) {
 	return $job['processed'] >= $job['total'];
 }
 
-function trpl_create_delete_job( $selected_sizes, $selected_folders, $filters = array() ) {
+function trpl_create_delete_job( $selected_sizes, $selected_folders, $filters = array(), $backup_before_delete = false ) {
 	$filters = trpl_sanitize_advanced_filters( $filters );
 	$candidates = trpl_build_removal_candidates( $selected_sizes, $selected_folders, $filters );
 	$batch_id = trpl_create_trash_batch();
+	$backup = array();
+
+	if ( $backup_before_delete && ! empty( $candidates ) ) {
+		$backup = trpl_create_trash_batch_backup( $batch_id, $candidates );
+
+		if ( false === $backup ) {
+			trpl_delete_trash_batch( $batch_id );
+
+			return new WP_Error( 'trpl_backup_failed', __( 'Failed to create a zip backup before moving files to Trash.', 'thumbnail-remover' ) );
+		}
+
+		$manifest = trpl_read_trash_manifest( $batch_id );
+		if ( $manifest ) {
+			$manifest['backup'] = $backup;
+			trpl_write_trash_manifest( $batch_id, $manifest );
+		}
+	}
 
 	return trpl_start_job(
 		'delete',
@@ -1631,6 +1738,7 @@ function trpl_create_delete_job( $selected_sizes, $selected_folders, $filters = 
 			'selected_folders' => $selected_folders,
 			'filters' => $filters,
 			'trash_batch_id' => $batch_id,
+			'backup' => $backup,
 			'result' => array(
 				'moved' => 0,
 				'bytes' => 0,
@@ -1836,13 +1944,19 @@ function trpl_ajax_start_delete() {
 	$selected_sizes = trpl_normalize_text_list( trpl_get_post_array_input( 'sizes' ) );
 	$selected_folders = trpl_normalize_text_list( trpl_get_post_array_input( 'folders' ) );
 	$filters = trpl_get_request_advanced_filters();
-	$job = trpl_create_delete_job( $selected_sizes, $selected_folders, $filters );
+	$backup_before_delete = (bool) trpl_get_post_scalar_input( 'backup_before_delete' );
+	$job = trpl_create_delete_job( $selected_sizes, $selected_folders, $filters, $backup_before_delete );
+
+	if ( is_wp_error( $job ) ) {
+		wp_send_json_error( array( 'message' => $job->get_error_message() ) );
+	}
 
 	wp_send_json_success(
 		array(
 			'job_id' => $job['id'],
 			'total' => $job['total'],
 			'trash_batch_id' => $job['trash_batch_id'],
+			'backup_url' => ! empty( $job['backup']['path'] ) ? trpl_upload_path_to_url( trpl_get_upload_base_dir() . $job['backup']['path'] ) : '',
 		)
 	);
 }
@@ -1872,12 +1986,29 @@ function trpl_ajax_process_delete() {
 	if ( $is_complete ) {
 		$response['result'] = $job['result'];
 		$response['trash_batch_id'] = $job['trash_batch_id'];
+		$response['backup_url'] = ! empty( $job['backup']['path'] ) ? trpl_upload_path_to_url( trpl_get_upload_base_dir() . $job['backup']['path'] ) : '';
 		if ( 'scheduled_cleanup' !== ( isset( $job['source'] ) ? $job['source'] : 'manual' ) ) {
+			if ( ! empty( $job['backup']['path'] ) ) {
+				trpl_add_activity_log(
+					array(
+						'action' => 'backup',
+						'status' => 'success',
+						'message' => __( 'Cleanup backup created before moving thumbnails to Trash.', 'thumbnail-remover' ),
+						'job_id' => $job['id'],
+						'batch_id' => $job['trash_batch_id'],
+						'files' => isset( $job['backup']['files'] ) ? (int) $job['backup']['files'] : 0,
+						'bytes' => isset( $job['backup']['bytes'] ) ? (int) $job['backup']['bytes'] : 0,
+						'sizes' => isset( $job['selected_sizes'] ) ? $job['selected_sizes'] : array(),
+						'folders' => isset( $job['selected_folders'] ) ? $job['selected_folders'] : array(),
+					)
+				);
+			}
+
 			trpl_add_activity_log(
 				array(
 					'action' => 'delete',
 					'status' => 'success',
-					'message' => __( 'Matching thumbnails were moved to Trash.', 'thumbnail-remover' ),
+					'message' => ! empty( $job['backup']['path'] ) ? __( 'Matching thumbnails were backed up and moved to Trash.', 'thumbnail-remover' ) : __( 'Matching thumbnails were moved to Trash.', 'thumbnail-remover' ),
 					'job_id' => $job['id'],
 					'batch_id' => $job['trash_batch_id'],
 					'files' => (int) $job['result']['moved'],
@@ -2588,6 +2719,13 @@ function trpl_admin_page() {
 					</ul>
 					<?php trpl_render_advanced_filter_fields( 'delete', $default_filters, array( 'include_source' => true ) ); ?>
 
+					<p>
+						<label>
+							<input type="checkbox" id="trpl-backup-before-delete" name="backup_before_delete" value="1" checked>
+							<?php esc_html_e( 'Create a zip backup of matching thumbnails before moving them to Trash', 'thumbnail-remover' ); ?>
+						</label>
+					</p>
+
 					<p class="trpl-action-row">
 						<button type="button" class="button" id="trpl-preview-delete"><?php esc_html_e( 'Preview Cleanup', 'thumbnail-remover' ); ?></button>
 						<button type="submit" class="button button-primary" id="trpl-start-delete"><?php esc_html_e( 'Move Matching Files to Trash', 'thumbnail-remover' ); ?></button>
@@ -2614,11 +2752,12 @@ function trpl_admin_page() {
 							<th><?php esc_html_e( 'Size', 'thumbnail-remover' ); ?></th>
 							<th><?php esc_html_e( 'Status', 'thumbnail-remover' ); ?></th>
 							<th><?php esc_html_e( 'Action', 'thumbnail-remover' ); ?></th>
+							<th><?php esc_html_e( 'Backup', 'thumbnail-remover' ); ?></th>
 						</tr>
 					</thead>
 					<tbody id="trpl-trash-table-body">
 						<?php if ( empty( $trash_batches ) ) : ?>
-							<tr><td colspan="6"><?php esc_html_e( 'Trash is empty.', 'thumbnail-remover' ); ?></td></tr>
+							<tr><td colspan="7"><?php esc_html_e( 'Trash is empty.', 'thumbnail-remover' ); ?></td></tr>
 						<?php else : ?>
 							<?php foreach ( $trash_batches as $batch ) : ?>
 								<tr data-batch-id="<?php echo esc_attr( $batch['id'] ); ?>">
@@ -2632,6 +2771,14 @@ function trpl_admin_page() {
 											<button type="button" class="button trpl-restore-trash" data-batch-id="<?php echo esc_attr( $batch['id'] ); ?>"><?php esc_html_e( 'Restore', 'thumbnail-remover' ); ?></button>
 										<?php else : ?>
 											<?php esc_html_e( 'Already restored', 'thumbnail-remover' ); ?>
+										<?php endif; ?>
+									</td>
+									<td>
+										<?php $backup_url = trpl_get_trash_batch_backup_url( $batch ); ?>
+										<?php if ( $backup_url ) : ?>
+											<a class="button button-secondary" href="<?php echo esc_url( $backup_url ); ?>"><?php esc_html_e( 'Download', 'thumbnail-remover' ); ?></a>
+										<?php else : ?>
+											<?php esc_html_e( 'Not created', 'thumbnail-remover' ); ?>
 										<?php endif; ?>
 									</td>
 								</tr>
