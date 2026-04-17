@@ -60,7 +60,7 @@ This release is built for site owners, developers, agencies, and anyone trying t
 == Frequently Asked Questions ==
 
 = Does the plugin permanently delete thumbnails? =
-No. Version 2 moves matching thumbnail files into plugin Trash first so they can be restored later.
+Not during cleanup. Version 2 moves matching thumbnail files into plugin Trash first so they can be restored later. To free disk space permanently, use `Delete Permanently` for one trash batch or `Empty Trash` for all batches in the Trash and Restore table.
 
 = What does Preview do? =
 Preview performs a dry run and shows how many files match your current selection, which sizes are involved, how much space can be recovered, and how many orphan thumbnails were found.
@@ -89,6 +89,9 @@ Yes. You can create a zip backup for all uploads or for a selected year/month fo
 = Can I restore only one cleanup batch instead of everything? =
 Yes. Each cleanup run creates its own Trash batch, so you can restore a specific batch independently.
 
+= How do I empty the plugin Trash? =
+Use `Empty Trash` in the Trash and Restore table to remove every batch, or use `Delete Permanently` for a single batch. This deletes the stored trash files and any backup stored with those batches, and it cannot be undone.
+
 = Does scheduled cleanup delete files permanently? =
 No. Scheduled cleanup uses the same plugin Trash flow as manual cleanup, so matching thumbnails can still be restored later.
 
@@ -111,6 +114,7 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 == Changelog ==
 
 = Unreleased =
+* Added permanent delete actions for individual Trash batches and for emptying all plugin Trash.
 * Added optional zip backups for matching thumbnails before they are moved to plugin Trash
 * Stored cleanup backup links with Trash batches so previous cleanup backups remain downloadable from the Trash and Restore table
 * Added advanced filters for image format, attachment usage, and orphan-only versus tracked cleanup

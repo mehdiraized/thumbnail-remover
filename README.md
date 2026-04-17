@@ -53,6 +53,8 @@ Preview cleanup before acting. The plugin shows:
 
 Matching thumbnails are moved into plugin Trash instead of being deleted permanently. You can restore a trash batch later from the same admin screen.
 
+When you are ready to free disk space, use `Delete Permanently` for one trash batch or `Empty Trash` for all batches.
+
 Cleanup can also create a zip backup of the exact matching thumbnails before they are moved, and the backup remains downloadable from the Trash batch table.
 
 ### Batch Processing
@@ -126,7 +128,7 @@ Review recent media operations from the admin screen, including analysis runs, p
 
 ### Does the plugin permanently delete thumbnails?
 
-No. Version 2 moves matching thumbnail files into plugin Trash first, so you can restore a cleanup batch later if needed.
+Not during cleanup. Version 2 moves matching thumbnail files into plugin Trash first, so you can restore a cleanup batch later if needed. To free disk space permanently, use `Delete Permanently` for one batch or `Empty Trash` for all batches in the Trash and Restore table.
 
 ### What does Preview Cleanup show before I remove anything?
 
@@ -163,6 +165,10 @@ Yes. Cleanup can create a zip backup of the exact matching thumbnails before mov
 ### Can I restore only one cleanup batch?
 
 Yes. Each cleanup run is stored as its own Trash batch, so you can restore a specific batch without undoing every previous cleanup action.
+
+### How do I empty the plugin Trash?
+
+Use `Empty Trash` in the Trash and Restore table to remove every batch, or use `Delete Permanently` for a single batch. This deletes the stored trash files and any backup stored with those batches, and it cannot be undone.
 
 ### Does scheduled cleanup delete files permanently?
 

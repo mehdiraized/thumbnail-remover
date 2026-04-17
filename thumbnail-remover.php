@@ -256,6 +256,8 @@ function trpl_get_activity_action_label( $action ) {
 		'analysis' => __( 'Library analysis', 'thumbnail-remover' ),
 		'preview' => __( 'Preview cleanup', 'thumbnail-remover' ),
 		'delete' => __( 'Move to Trash', 'thumbnail-remover' ),
+		'delete_trash' => __( 'Delete trash batch', 'thumbnail-remover' ),
+		'empty_trash' => __( 'Empty plugin Trash', 'thumbnail-remover' ),
 		'restore' => __( 'Restore trash batch', 'thumbnail-remover' ),
 		'regenerate' => __( 'Regenerate sizes', 'thumbnail-remover' ),
 		'backup' => __( 'Backup images', 'thumbnail-remover' ),
@@ -470,7 +472,12 @@ function trpl_enqueue_scripts( $hook ) {
 				'previewEmpty' => __( 'No matching thumbnails were found for the current selection.', 'thumbnail-remover' ),
 				'confirmTrash' => __( 'Selected thumbnails will be moved to Trash so they can be restored later. Continue?', 'thumbnail-remover' ),
 				'confirmRestore' => __( 'Restore this trash batch?', 'thumbnail-remover' ),
+				'confirmDeleteTrash' => __( 'Permanently delete this trash batch? This cannot be undone.', 'thumbnail-remover' ),
+				'confirmEmptyTrash' => __( 'Permanently delete all trash batches? This cannot be undone.', 'thumbnail-remover' ),
 				'confirmRegenerate' => __( 'Regenerate missing image sizes for the selected attachments?', 'thumbnail-remover' ),
+				'alreadyRestored' => __( 'Already restored', 'thumbnail-remover' ),
+				'deletePermanently' => __( 'Delete Permanently', 'thumbnail-remover' ),
+				'trashEmpty' => __( 'Trash is empty.', 'thumbnail-remover' ),
 				'selectOneFolder' => __( 'Please select at least one folder.', 'thumbnail-remover' ),
 				'selectYearMonth' => __( 'Please select both year and month for date-specific backup.', 'thumbnail-remover' ),
 			),
@@ -1389,7 +1396,15 @@ function trpl_get_trash_manifest_path( $batch_id ) {
 	return trpl_get_trash_base_dir() . $batch_id . '/manifest.json';
 }
 
+function trpl_is_valid_trash_batch_id( $batch_id ) {
+	return is_string( $batch_id ) && 1 === preg_match( '/^\d{8}-\d{6}-[A-Za-z0-9]{6}$/', $batch_id );
+}
+
 function trpl_delete_trash_batch( $batch_id ) {
+	if ( ! trpl_is_valid_trash_batch_id( $batch_id ) ) {
+		return false;
+	}
+
 	return trpl_delete_directory( trpl_get_trash_base_dir() . $batch_id );
 }
 
@@ -1417,6 +1432,10 @@ function trpl_write_trash_manifest( $batch_id, $manifest ) {
 }
 
 function trpl_read_trash_manifest( $batch_id ) {
+	if ( ! trpl_is_valid_trash_batch_id( $batch_id ) ) {
+		return null;
+	}
+
 	$filesystem = trpl_get_filesystem();
 	$path = trpl_get_trash_manifest_path( $batch_id );
 	if ( ! $filesystem || ! $filesystem->exists( $path ) ) {
@@ -2050,6 +2069,96 @@ function trpl_ajax_restore_trash() {
 	wp_send_json_success( $result );
 }
 add_action( 'wp_ajax_trpl_restore_trash', 'trpl_ajax_restore_trash' );
+
+function trpl_ajax_delete_trash() {
+	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
+	trpl_require_manage_options();
+
+	$batch_id = isset( $_POST['batch_id'] ) ? sanitize_text_field( wp_unslash( $_POST['batch_id'] ) ) : '';
+	$manifest = trpl_read_trash_manifest( $batch_id );
+	if ( ! $manifest ) {
+		wp_send_json_error( array( 'message' => __( 'Trash batch not found.', 'thumbnail-remover' ) ) );
+	}
+
+	$files = isset( $manifest['items'] ) && is_array( $manifest['items'] ) ? count( $manifest['items'] ) : 0;
+	$bytes = isset( $manifest['total_bytes'] ) ? (int) $manifest['total_bytes'] : 0;
+
+	if ( ! trpl_delete_trash_batch( $batch_id ) ) {
+		wp_send_json_error( array( 'message' => __( 'Failed to permanently delete this trash batch.', 'thumbnail-remover' ) ) );
+	}
+
+	trpl_add_activity_log(
+		array(
+			'action' => 'delete_trash',
+			'status' => 'success',
+			'message' => __( 'Trash batch permanently deleted.', 'thumbnail-remover' ),
+			'batch_id' => $batch_id,
+			'files' => $files,
+			'bytes' => $bytes,
+		)
+	);
+
+	wp_send_json_success(
+		array(
+			'message' => __( 'Trash batch permanently deleted.', 'thumbnail-remover' ),
+			'files' => $files,
+			'bytes' => $bytes,
+		)
+	);
+}
+add_action( 'wp_ajax_trpl_delete_trash', 'trpl_ajax_delete_trash' );
+
+function trpl_ajax_empty_trash() {
+	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
+	trpl_require_manage_options();
+
+	$batches = trpl_get_trash_batches();
+	if ( empty( $batches ) ) {
+		wp_send_json_success( array( 'message' => __( 'Trash is already empty.', 'thumbnail-remover' ) ) );
+	}
+
+	$files = 0;
+	$bytes = 0;
+	$failed = array();
+
+	foreach ( $batches as $batch ) {
+		$batch_id = isset( $batch['id'] ) ? (string) $batch['id'] : '';
+		$files += isset( $batch['items'] ) && is_array( $batch['items'] ) ? count( $batch['items'] ) : 0;
+		$bytes += isset( $batch['total_bytes'] ) ? (int) $batch['total_bytes'] : 0;
+
+		if ( ! trpl_delete_trash_batch( $batch_id ) ) {
+			$failed[] = $batch_id;
+		}
+	}
+
+	if ( ! empty( $failed ) ) {
+		wp_send_json_error(
+			array(
+				'message' => __( 'Some trash batches could not be permanently deleted.', 'thumbnail-remover' ),
+				'failed' => $failed,
+			)
+		);
+	}
+
+	trpl_add_activity_log(
+		array(
+			'action' => 'empty_trash',
+			'status' => 'success',
+			'message' => __( 'Plugin Trash emptied.', 'thumbnail-remover' ),
+			'files' => $files,
+			'bytes' => $bytes,
+		)
+	);
+
+	wp_send_json_success(
+		array(
+			'message' => __( 'Plugin Trash emptied.', 'thumbnail-remover' ),
+			'files' => $files,
+			'bytes' => $bytes,
+		)
+	);
+}
+add_action( 'wp_ajax_trpl_empty_trash', 'trpl_ajax_empty_trash' );
 
 function trpl_ajax_start_regenerate() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
@@ -2742,6 +2851,9 @@ function trpl_admin_page() {
 				<div class="wrt-box">
 				<h2><?php esc_html_e( 'Trash and Restore', 'thumbnail-remover' ); ?></h2>
 				<p><?php esc_html_e( 'Removed thumbnails are moved into plugin Trash so you can restore them later if needed.', 'thumbnail-remover' ); ?></p>
+				<?php if ( ! empty( $trash_batches ) ) : ?>
+					<p><button type="button" class="button button-link-delete" id="trpl-empty-trash"><?php esc_html_e( 'Empty Trash', 'thumbnail-remover' ); ?></button></p>
+				<?php endif; ?>
 				<div id="trpl-trash-results" class="trpl-results"></div>
 				<table class="widefat striped">
 					<thead>
@@ -2769,8 +2881,10 @@ function trpl_admin_page() {
 									<td>
 										<?php if ( 'active' === $batch['status'] ) : ?>
 											<button type="button" class="button trpl-restore-trash" data-batch-id="<?php echo esc_attr( $batch['id'] ); ?>"><?php esc_html_e( 'Restore', 'thumbnail-remover' ); ?></button>
+											<button type="button" class="button button-link-delete trpl-delete-trash" data-batch-id="<?php echo esc_attr( $batch['id'] ); ?>"><?php esc_html_e( 'Delete Permanently', 'thumbnail-remover' ); ?></button>
 										<?php else : ?>
 											<?php esc_html_e( 'Already restored', 'thumbnail-remover' ); ?>
+											<button type="button" class="button button-link-delete trpl-delete-trash" data-batch-id="<?php echo esc_attr( $batch['id'] ); ?>"><?php esc_html_e( 'Delete Permanently', 'thumbnail-remover' ); ?></button>
 										<?php endif; ?>
 									</td>
 									<td>

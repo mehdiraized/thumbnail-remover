@@ -211,6 +211,10 @@
 	word-break: break-word;
 }
 
+.trpl-delete-trash {
+	margin-left: 8px !important;
+}
+
 .trpl-status-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));

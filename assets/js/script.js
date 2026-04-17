@@ -49,6 +49,14 @@ jQuery(function ($) {
 		});
 	}
 
+	function createDeleteTrashButton(batchId) {
+		return $("<button>", {
+			type: "button",
+			class: "button button-link-delete trpl-delete-trash",
+			text: thumbnailManager.i18n.deletePermanently,
+		}).attr("data-batch-id", batchId);
+	}
+
 	function runJob(options) {
 		return ajaxPost(options.startAction, options.startData)
 			.then(function (response) {
@@ -292,11 +300,73 @@ jQuery(function ($) {
 				renderNotice($results, response.data.message, "success");
 				const $row = $button.closest("tr");
 				$row.find("td").eq(4).text("Restored");
-				$row.find("td").eq(5).text("Already restored");
+				$row.find("td").eq(5).empty().append(document.createTextNode(thumbnailManager.i18n.alreadyRestored + " ")).append(createDeleteTrashButton(batchId));
 			})
 			.fail(function () {
 				renderNotice($results, thumbnailManager.i18n.error, "error");
 				$button.prop("disabled", false);
+			});
+	});
+
+	$(document).on("click", ".trpl-delete-trash", function () {
+		const $button = $(this);
+		const batchId = $button.data("batch-id");
+		const $results = $("#trpl-trash-results");
+
+		if (!window.confirm(thumbnailManager.i18n.confirmDeleteTrash)) {
+			return;
+		}
+
+		$button.closest("tr").find("button").prop("disabled", true);
+		ajaxPost("trpl_delete_trash", { batch_id: batchId })
+			.done(function (response) {
+				if (!response.success) {
+					renderNotice($results, response.data && response.data.message ? response.data.message : thumbnailManager.i18n.error, "error");
+					$button.closest("tr").find("button").prop("disabled", false);
+					return;
+				}
+
+				renderNotice($results, response.data.message, "success");
+				const $tbody = $("#trpl-trash-table-body");
+				$button.closest("tr").remove();
+				if (!$tbody.find("tr[data-batch-id]").length) {
+					$tbody.html('<tr><td colspan="7">' + thumbnailManager.i18n.trashEmpty + "</td></tr>");
+					$("#trpl-empty-trash").closest("p").remove();
+				}
+			})
+			.fail(function () {
+				renderNotice($results, thumbnailManager.i18n.error, "error");
+				$button.closest("tr").find("button").prop("disabled", false);
+			});
+	});
+
+	$("#trpl-empty-trash").on("click", function () {
+		const $button = $(this);
+		const $results = $("#trpl-trash-results");
+
+		if (!window.confirm(thumbnailManager.i18n.confirmEmptyTrash)) {
+			return;
+		}
+
+		$button.prop("disabled", true);
+		$("#trpl-trash-table-body").find("button").prop("disabled", true);
+		ajaxPost("trpl_empty_trash")
+			.done(function (response) {
+				if (!response.success) {
+					renderNotice($results, response.data && response.data.message ? response.data.message : thumbnailManager.i18n.error, "error");
+					$button.prop("disabled", false);
+					$("#trpl-trash-table-body").find("button").prop("disabled", false);
+					return;
+				}
+
+				renderNotice($results, response.data.message, "success");
+				$("#trpl-trash-table-body").html('<tr><td colspan="7">' + thumbnailManager.i18n.trashEmpty + "</td></tr>");
+				$button.closest("p").remove();
+			})
+			.fail(function () {
+				renderNotice($results, thumbnailManager.i18n.error, "error");
+				$button.prop("disabled", false);
+				$("#trpl-trash-table-body").find("button").prop("disabled", false);
 			});
 	});
 
