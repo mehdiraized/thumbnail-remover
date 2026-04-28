@@ -434,7 +434,7 @@ function trpl_get_activity_report_summary( $entries ) {
 }
 
 function trpl_enqueue_styles( $hook ) {
-	if ( 'tools_page_thumbnail-manager' !== $hook ) {
+	if ( ! in_array( $hook, array( 'tools_page_thumbnail-manager', 'upload.php' ), true ) ) {
 		return;
 	}
 
@@ -448,7 +448,7 @@ function trpl_enqueue_styles( $hook ) {
 add_action( 'admin_enqueue_scripts', 'trpl_enqueue_styles' );
 
 function trpl_enqueue_scripts( $hook ) {
-	if ( 'tools_page_thumbnail-manager' !== $hook ) {
+	if ( ! in_array( $hook, array( 'tools_page_thumbnail-manager', 'upload.php' ), true ) ) {
 		return;
 	}
 
@@ -476,6 +476,8 @@ function trpl_enqueue_scripts( $hook ) {
 				'confirmDeleteTrash' => __( 'Permanently delete this trash batch? This cannot be undone.', 'thumbnail-remover' ),
 				'confirmEmptyTrash' => __( 'Permanently delete all trash batches? This cannot be undone.', 'thumbnail-remover' ),
 				'confirmRegenerate' => __( 'Regenerate missing image sizes for the selected attachments?', 'thumbnail-remover' ),
+				'confirmMediaTrash' => __( 'Move this attachment\'s generated thumbnails to Trash?', 'thumbnail-remover' ),
+				'confirmMediaRegenerate' => __( 'Regenerate missing thumbnails for this attachment?', 'thumbnail-remover' ),
 				'confirmGenerateWebp' => __( 'Generate WebP copies for the selected images and thumbnail sizes?', 'thumbnail-remover' ),
 				'alreadyRestored' => __( 'Already restored', 'thumbnail-remover' ),
 				'deletePermanently' => __( 'Delete Permanently', 'thumbnail-remover' ),
@@ -498,6 +500,57 @@ function trpl_admin_menu() {
 	);
 }
 add_action( 'admin_menu', 'trpl_admin_menu' );
+
+function trpl_add_media_library_column( $columns ) {
+	$inserted = array();
+
+	foreach ( $columns as $key => $label ) {
+		$inserted[ $key ] = $label;
+
+		if ( 'file' === $key ) {
+			$inserted['trpl_thumbnail_summary'] = __( 'Thumbnails', 'thumbnail-remover' );
+		}
+	}
+
+	if ( ! isset( $inserted['trpl_thumbnail_summary'] ) ) {
+		$inserted['trpl_thumbnail_summary'] = __( 'Thumbnails', 'thumbnail-remover' );
+	}
+
+	return $inserted;
+}
+add_filter( 'manage_upload_columns', 'trpl_add_media_library_column' );
+
+function trpl_render_media_library_column( $column_name, $attachment_id ) {
+	if ( 'trpl_thumbnail_summary' !== $column_name ) {
+		return;
+	}
+
+	if ( 0 !== strpos( (string) get_post_mime_type( $attachment_id ), 'image/' ) ) {
+		echo '&mdash;';
+		return;
+	}
+
+	$summary = trpl_get_attachment_thumbnail_summary( $attachment_id );
+	?>
+	<div class="trpl-media-summary">
+		<strong><?php echo esc_html( sprintf( _n( '%d thumbnail', '%d thumbnails', (int) $summary['tracked_files'], 'thumbnail-remover' ), (int) $summary['tracked_files'] ) ); ?></strong>
+		<div class="trpl-media-summary-meta">
+			<?php echo esc_html( size_format( (int) $summary['bytes'] ) ); ?>
+			<?php if ( ! empty( $summary['orphan_files'] ) ) : ?>
+				<br><?php echo esc_html( sprintf( _n( '%d orphan', '%d orphans', (int) $summary['orphan_files'], 'thumbnail-remover' ), (int) $summary['orphan_files'] ) ); ?>
+			<?php endif; ?>
+			<?php if ( ! empty( $summary['missing_sizes'] ) ) : ?>
+				<br><?php echo esc_html( sprintf( _n( '%d missing size', '%d missing sizes', (int) $summary['missing_sizes'], 'thumbnail-remover' ), (int) $summary['missing_sizes'] ) ); ?>
+			<?php endif; ?>
+		</div>
+		<div class="trpl-media-actions">
+			<button type="button" class="button button-small trpl-media-action" data-action="trash" data-attachment-id="<?php echo esc_attr( $attachment_id ); ?>"><?php esc_html_e( 'Move to Trash', 'thumbnail-remover' ); ?></button>
+			<button type="button" class="button button-small trpl-media-action" data-action="regenerate" data-attachment-id="<?php echo esc_attr( $attachment_id ); ?>"><?php esc_html_e( 'Regenerate', 'thumbnail-remover' ); ?></button>
+		</div>
+	</div>
+	<?php
+}
+add_action( 'manage_media_custom_column', 'trpl_render_media_library_column', 10, 2 );
 
 function trpl_admin_notice( $message, $type = 'updated' ) {
 	printf( '<div class="%1$s notice"><p>%2$s</p></div>', esc_attr( $type ), wp_kses_post( $message ) );
@@ -1094,6 +1147,48 @@ function trpl_get_attachment_files( $attachment_id ) {
 	$records_cache[ $attachment_id ] = $records;
 
 	return $records;
+}
+
+function trpl_get_attachment_thumbnail_summary( $attachment_id ) {
+	$summary = array(
+		'tracked_files' => 0,
+		'orphan_files' => 0,
+		'bytes' => 0,
+		'missing_sizes' => 0,
+	);
+	$metadata = wp_get_attachment_metadata( $attachment_id );
+	$metadata_sizes = isset( $metadata['sizes'] ) && is_array( $metadata['sizes'] ) ? $metadata['sizes'] : array();
+
+	foreach ( trpl_get_attachment_files( $attachment_id ) as $record ) {
+		$summary['bytes'] += (int) $record['bytes'];
+
+		if ( ! empty( $record['is_orphan'] ) ) {
+			$summary['orphan_files']++;
+			continue;
+		}
+
+		$summary['tracked_files']++;
+	}
+
+	foreach ( array_keys( trpl_get_all_image_sizes() ) as $size_name ) {
+		if ( ! isset( $metadata_sizes[ $size_name ] ) ) {
+			$summary['missing_sizes']++;
+		}
+	}
+
+	return $summary;
+}
+
+function trpl_get_attachment_removal_candidates( $attachment_id ) {
+	$candidates = array();
+
+	foreach ( trpl_get_attachment_files( $attachment_id ) as $record ) {
+		if ( file_exists( $record['path'] ) ) {
+			$candidates[] = $record;
+		}
+	}
+
+	return $candidates;
 }
 
 function trpl_record_matches_selected_sizes( $record, $selected_sizes ) {
@@ -1940,6 +2035,48 @@ function trpl_process_regenerate_job( &$job, $batch_size = 8 ) {
 	return $job['processed'] >= $job['total'];
 }
 
+function trpl_regenerate_attachment_missing_sizes( $attachment_id, $selected_sizes = array() ) {
+	$before = wp_get_attachment_metadata( $attachment_id );
+	$before_sizes = isset( $before['sizes'] ) && is_array( $before['sizes'] ) ? array_keys( $before['sizes'] ) : array();
+	$filter = null;
+
+	if ( ! empty( $selected_sizes ) ) {
+		$filter = function ( $sizes ) use ( $selected_sizes ) {
+			return array_intersect_key( $sizes, array_flip( $selected_sizes ) );
+		};
+		add_filter( 'intermediate_image_sizes_advanced', $filter );
+	}
+
+	if ( function_exists( 'wp_update_image_subsizes' ) ) {
+		wp_update_image_subsizes( $attachment_id );
+	} else {
+		$file = get_attached_file( $attachment_id );
+		if ( $file && file_exists( $file ) ) {
+			$metadata = wp_generate_attachment_metadata( $attachment_id, $file );
+			if ( ! is_wp_error( $metadata ) && ! empty( $metadata ) ) {
+				wp_update_attachment_metadata( $attachment_id, $metadata );
+			}
+		}
+	}
+
+	if ( $filter ) {
+		remove_filter( 'intermediate_image_sizes_advanced', $filter );
+	}
+
+	$after = wp_get_attachment_metadata( $attachment_id );
+	$after_sizes = isset( $after['sizes'] ) && is_array( $after['sizes'] ) ? array_keys( $after['sizes'] ) : array();
+	$generated_now = array_diff( $after_sizes, $before_sizes );
+
+	if ( ! empty( $selected_sizes ) ) {
+		$generated_now = array_intersect( $generated_now, $selected_sizes );
+	}
+
+	return array(
+		'attachments' => 1,
+		'generated' => count( $generated_now ),
+	);
+}
+
 function trpl_create_webp_job( $selected_sizes, $selected_folders, $filters = array(), $include_original = true, $overwrite_existing = false ) {
 	$filters = trpl_sanitize_advanced_filters( $filters, array( 'allow_source' => false ) );
 	$attachment_ids = trpl_build_regeneration_attachment_ids( $selected_folders, $filters );
@@ -2302,6 +2439,96 @@ function trpl_ajax_empty_trash() {
 	);
 }
 add_action( 'wp_ajax_trpl_empty_trash', 'trpl_ajax_empty_trash' );
+
+function trpl_ajax_media_library_trash_attachment() {
+	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
+	trpl_require_manage_options();
+
+	$attachment_id = (int) trpl_get_post_scalar_input( 'attachment_id' );
+	if ( $attachment_id <= 0 || 0 !== strpos( (string) get_post_mime_type( $attachment_id ), 'image/' ) ) {
+		wp_send_json_error( array( 'message' => __( 'Attachment not found.', 'thumbnail-remover' ) ) );
+	}
+
+	$candidates = trpl_get_attachment_removal_candidates( $attachment_id );
+	if ( empty( $candidates ) ) {
+		wp_send_json_success( array( 'message' => __( 'This attachment does not have removable thumbnail files.', 'thumbnail-remover' ) ) );
+	}
+
+	$batch_id = trpl_create_trash_batch();
+	$moved = 0;
+	$bytes = 0;
+	$orphans = 0;
+
+	foreach ( $candidates as $record ) {
+		if ( trpl_move_file_to_trash( $batch_id, $record ) ) {
+			$moved++;
+			$bytes += (int) $record['bytes'];
+			if ( ! empty( $record['is_orphan'] ) ) {
+				$orphans++;
+			}
+		}
+	}
+
+	trpl_add_activity_log(
+		array(
+			'action' => 'delete',
+			'status' => 'success',
+			'message' => __( 'Attachment thumbnails were moved to Trash from the Media Library.', 'thumbnail-remover' ),
+			'batch_id' => $batch_id,
+			'attachments' => 1,
+			'files' => $moved,
+			'bytes' => $bytes,
+			'orphans' => $orphans,
+		)
+	);
+
+	wp_send_json_success(
+		array(
+			'message' => sprintf(
+				/* translators: %d: moved files count. */
+				__( 'Moved %d thumbnail file(s) to Trash.', 'thumbnail-remover' ),
+				$moved
+			),
+			'batch_id' => $batch_id,
+			'files' => $moved,
+			'bytes' => $bytes,
+		)
+	);
+}
+add_action( 'wp_ajax_trpl_media_library_trash_attachment', 'trpl_ajax_media_library_trash_attachment' );
+
+function trpl_ajax_media_library_regenerate_attachment() {
+	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
+	trpl_require_manage_options();
+
+	$attachment_id = (int) trpl_get_post_scalar_input( 'attachment_id' );
+	if ( $attachment_id <= 0 || 0 !== strpos( (string) get_post_mime_type( $attachment_id ), 'image/' ) ) {
+		wp_send_json_error( array( 'message' => __( 'Attachment not found.', 'thumbnail-remover' ) ) );
+	}
+
+	$result = trpl_regenerate_attachment_missing_sizes( $attachment_id );
+	trpl_add_activity_log(
+		array(
+			'action' => 'regenerate',
+			'status' => 'success',
+			'message' => __( 'Attachment thumbnails were regenerated from the Media Library.', 'thumbnail-remover' ),
+			'attachments' => 1,
+			'generated' => isset( $result['generated'] ) ? (int) $result['generated'] : 0,
+		)
+	);
+
+	wp_send_json_success(
+		array(
+			'message' => sprintf(
+				/* translators: %d: regenerated size count. */
+				__( 'Generated %d missing thumbnail size(s).', 'thumbnail-remover' ),
+				isset( $result['generated'] ) ? (int) $result['generated'] : 0
+			),
+			'result' => $result,
+		)
+	);
+}
+add_action( 'wp_ajax_trpl_media_library_regenerate_attachment', 'trpl_ajax_media_library_regenerate_attachment' );
 
 function trpl_ajax_start_regenerate() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );

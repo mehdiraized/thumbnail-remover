@@ -211,6 +211,24 @@
 	word-break: break-word;
 }
 
+.trpl-media-summary {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.trpl-media-summary-meta {
+	color: #50575e;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+.trpl-media-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
 .trpl-delete-trash {
 	margin-left: 8px !important;
 }
