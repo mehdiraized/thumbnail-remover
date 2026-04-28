@@ -260,6 +260,7 @@ function trpl_get_activity_action_label( $action ) {
 		'empty_trash' => __( 'Empty plugin Trash', 'thumbnail-remover' ),
 		'restore' => __( 'Restore trash batch', 'thumbnail-remover' ),
 		'regenerate' => __( 'Regenerate sizes', 'thumbnail-remover' ),
+		'webp' => __( 'Generate WebP variants', 'thumbnail-remover' ),
 		'backup' => __( 'Backup images', 'thumbnail-remover' ),
 		'scheduled_cleanup' => __( 'Scheduled cleanup', 'thumbnail-remover' ),
 		'settings' => __( 'Settings update', 'thumbnail-remover' ),
@@ -420,7 +421,7 @@ function trpl_get_activity_report_summary( $entries ) {
 			$summary['restored_files'] += (int) $entry['files'];
 		}
 
-		if ( 'regenerate' === $entry['action'] ) {
+		if ( 'regenerate' === $entry['action'] || 'webp' === $entry['action'] ) {
 			$summary['generated_sizes'] += (int) $entry['generated'];
 		}
 
@@ -475,6 +476,7 @@ function trpl_enqueue_scripts( $hook ) {
 				'confirmDeleteTrash' => __( 'Permanently delete this trash batch? This cannot be undone.', 'thumbnail-remover' ),
 				'confirmEmptyTrash' => __( 'Permanently delete all trash batches? This cannot be undone.', 'thumbnail-remover' ),
 				'confirmRegenerate' => __( 'Regenerate missing image sizes for the selected attachments?', 'thumbnail-remover' ),
+				'confirmGenerateWebp' => __( 'Generate WebP copies for the selected images and thumbnail sizes?', 'thumbnail-remover' ),
 				'alreadyRestored' => __( 'Already restored', 'thumbnail-remover' ),
 				'deletePermanently' => __( 'Delete Permanently', 'thumbnail-remover' ),
 				'trashEmpty' => __( 'Trash is empty.', 'thumbnail-remover' ),
@@ -638,6 +640,89 @@ function trpl_is_supported_image_path( $path ) {
 
 function trpl_is_thumbnail_filename( $filename ) {
 	return (bool) preg_match( '/-\d+x\d+\.(jpe?g|png|gif|webp|avif)$/i', $filename );
+}
+
+function trpl_is_webp_convertible_extension( $extension ) {
+	return in_array( strtolower( (string) $extension ), array( 'jpg', 'jpeg', 'png' ), true );
+}
+
+function trpl_is_webp_convertible_path( $path ) {
+	return trpl_is_webp_convertible_extension( pathinfo( (string) $path, PATHINFO_EXTENSION ) );
+}
+
+function trpl_get_webp_output_path( $path ) {
+	$directory = trailingslashit( dirname( $path ) );
+	$filename = pathinfo( wp_basename( $path ), PATHINFO_FILENAME );
+
+	return $directory . $filename . '.webp';
+}
+
+function trpl_generate_webp_file( $source_path, $destination_path, $quality = 82, $overwrite_existing = false ) {
+	if ( ! $source_path || ! file_exists( $source_path ) || ! is_file( $source_path ) ) {
+		return new WP_Error( 'trpl_webp_missing_source', __( 'Source image was not found.', 'thumbnail-remover' ) );
+	}
+
+	if ( ! trpl_is_webp_convertible_path( $source_path ) ) {
+		return new WP_Error( 'trpl_webp_unsupported_source', __( 'This image format cannot be converted to WebP by this tool.', 'thumbnail-remover' ) );
+	}
+
+	if ( file_exists( $destination_path ) && ! $overwrite_existing ) {
+		return 'exists';
+	}
+
+	$editor = wp_get_image_editor( $source_path );
+	if ( is_wp_error( $editor ) ) {
+		return $editor;
+	}
+
+	if ( method_exists( $editor, 'set_quality' ) ) {
+		$editor->set_quality( (int) $quality );
+	}
+
+	trpl_ensure_directory( dirname( $destination_path ) );
+	$saved = $editor->save( $destination_path, 'image/webp' );
+
+	if ( is_wp_error( $saved ) ) {
+		return $saved;
+	}
+
+	return is_array( $saved ) && ! empty( $saved['path'] ) ? $saved['path'] : $destination_path;
+}
+
+function trpl_collect_attachment_webp_targets( $attachment_id, $selected_sizes, $include_original = true ) {
+	$targets = array();
+	$selected_sizes = trpl_normalize_text_list( $selected_sizes );
+
+	if ( $include_original ) {
+		$original_path = get_attached_file( $attachment_id );
+		if ( $original_path && file_exists( $original_path ) && trpl_is_webp_convertible_path( $original_path ) ) {
+			$targets[] = array(
+				'attachment_id' => $attachment_id,
+				'label' => __( 'Original image', 'thumbnail-remover' ),
+				'source_path' => $original_path,
+				'destination_path' => trpl_get_webp_output_path( $original_path ),
+			);
+		}
+	}
+
+	foreach ( trpl_get_attachment_files( $attachment_id ) as $record ) {
+		if ( ! empty( $record['is_orphan'] ) || ! file_exists( $record['path'] ) || ! trpl_is_webp_convertible_path( $record['path'] ) ) {
+			continue;
+		}
+
+		if ( ! empty( $selected_sizes ) && ! trpl_record_matches_selected_sizes( $record, $selected_sizes ) ) {
+			continue;
+		}
+
+		$targets[] = array(
+			'attachment_id' => $attachment_id,
+			'label' => $record['size_label'],
+			'source_path' => $record['path'],
+			'destination_path' => trpl_get_webp_output_path( $record['path'] ),
+		);
+	}
+
+	return $targets;
 }
 
 function trpl_normalize_text_list( $values, $split_string = false ) {
@@ -1855,6 +1940,64 @@ function trpl_process_regenerate_job( &$job, $batch_size = 8 ) {
 	return $job['processed'] >= $job['total'];
 }
 
+function trpl_create_webp_job( $selected_sizes, $selected_folders, $filters = array(), $include_original = true, $overwrite_existing = false ) {
+	$filters = trpl_sanitize_advanced_filters( $filters, array( 'allow_source' => false ) );
+	$attachment_ids = trpl_build_regeneration_attachment_ids( $selected_folders, $filters );
+
+	return trpl_start_job(
+		'webp',
+		array(
+			'attachment_ids' => $attachment_ids,
+			'selected_sizes' => $selected_sizes,
+			'selected_folders' => $selected_folders,
+			'filters' => $filters,
+			'include_original' => ! empty( $include_original ),
+			'overwrite_existing' => ! empty( $overwrite_existing ),
+			'processed' => 0,
+			'total' => count( $attachment_ids ),
+			'result' => array(
+				'attachments' => 0,
+				'generated' => 0,
+				'skipped' => 0,
+				'failed' => 0,
+			),
+		)
+	);
+}
+
+function trpl_process_webp_job( &$job, $batch_size = 6 ) {
+	$chunk = array_slice( $job['attachment_ids'], $job['processed'], $batch_size );
+	$selected_sizes = isset( $job['selected_sizes'] ) ? $job['selected_sizes'] : array();
+	$include_original = ! empty( $job['include_original'] );
+	$overwrite_existing = ! empty( $job['overwrite_existing'] );
+
+	foreach ( $chunk as $attachment_id ) {
+		$targets = trpl_collect_attachment_webp_targets( $attachment_id, $selected_sizes, $include_original );
+
+		foreach ( $targets as $target ) {
+			$result = trpl_generate_webp_file( $target['source_path'], $target['destination_path'], 82, $overwrite_existing );
+
+			if ( 'exists' === $result ) {
+				$job['result']['skipped']++;
+				continue;
+			}
+
+			if ( is_wp_error( $result ) ) {
+				$job['result']['failed']++;
+				continue;
+			}
+
+			$job['result']['generated']++;
+		}
+
+		$job['result']['attachments']++;
+	}
+
+	$job['processed'] += count( $chunk );
+
+	return $job['processed'] >= $job['total'];
+}
+
 function trpl_ajax_preview_delete() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
 	trpl_require_manage_options();
@@ -2219,6 +2362,69 @@ function trpl_ajax_process_regenerate() {
 	wp_send_json_success( $response );
 }
 add_action( 'wp_ajax_trpl_process_regenerate', 'trpl_ajax_process_regenerate' );
+
+function trpl_ajax_start_webp_generation() {
+	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
+	trpl_require_manage_options();
+
+	$selected_sizes = trpl_normalize_text_list( trpl_get_post_array_input( 'sizes' ) );
+	$selected_folders = trpl_normalize_text_list( trpl_get_post_array_input( 'folders' ) );
+	$filters = trpl_get_request_advanced_filters( array( 'allow_source' => false ) );
+	$include_original = (bool) trpl_get_post_scalar_input( 'include_original', '1' );
+	$overwrite_existing = (bool) trpl_get_post_scalar_input( 'overwrite_existing' );
+	$job = trpl_create_webp_job( $selected_sizes, $selected_folders, $filters, $include_original, $overwrite_existing );
+
+	wp_send_json_success(
+		array(
+			'job_id' => $job['id'],
+			'total' => $job['total'],
+		)
+	);
+}
+add_action( 'wp_ajax_trpl_start_webp_generation', 'trpl_ajax_start_webp_generation' );
+
+function trpl_ajax_process_webp_generation() {
+	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
+	trpl_require_manage_options();
+
+	$job_id = isset( $_POST['job_id'] ) ? sanitize_text_field( wp_unslash( $_POST['job_id'] ) ) : '';
+	$job = trpl_get_job( $job_id );
+
+	if ( ! $job || 'webp' !== $job['type'] ) {
+		wp_send_json_error( array( 'message' => __( 'WebP generation job not found.', 'thumbnail-remover' ) ) );
+	}
+
+	$is_complete = trpl_process_webp_job( $job );
+	trpl_save_job( $job );
+
+	$response = array(
+		'progress' => trpl_calculate_progress( $job['processed'], $job['total'] ),
+		'processed' => $job['processed'],
+		'total' => $job['total'],
+		'complete' => $is_complete,
+	);
+
+	if ( $is_complete ) {
+		$response['result'] = $job['result'];
+		trpl_add_activity_log(
+			array(
+				'action' => 'webp',
+				'status' => 'success',
+				'message' => __( 'WebP generation completed successfully.', 'thumbnail-remover' ),
+				'job_id' => $job['id'],
+				'attachments' => (int) $job['result']['attachments'],
+				'generated' => (int) $job['result']['generated'],
+				'files' => (int) $job['result']['generated'],
+				'sizes' => isset( $job['selected_sizes'] ) ? $job['selected_sizes'] : array(),
+				'folders' => isset( $job['selected_folders'] ) ? $job['selected_folders'] : array(),
+			)
+		);
+		trpl_delete_job( $job_id );
+	}
+
+	wp_send_json_success( $response );
+}
+add_action( 'wp_ajax_trpl_process_webp_generation', 'trpl_ajax_process_webp_generation' );
 
 function trpl_backup_images_ajax() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
@@ -2926,6 +3132,41 @@ function trpl_admin_page() {
 			</div>
 
 				<div class="wrt-box">
+				<h2><?php esc_html_e( 'Generate WebP Variants', 'thumbnail-remover' ); ?></h2>
+				<p><?php esc_html_e( 'Create sibling .webp files for selected originals and generated thumbnail sizes when your WordPress image editor supports WebP output.', 'thumbnail-remover' ); ?></p>
+				<form id="trpl-webp-form">
+					<h3><?php esc_html_e( 'Select sizes to convert', 'thumbnail-remover' ); ?></h3>
+					<ul class="wrt-list">
+						<?php trpl_render_checkbox_list( $registered_sizes, 'webp_sizes', array(), 'trpl_format_size_label' ); ?>
+					</ul>
+
+					<h3><?php esc_html_e( 'Limit to folders', 'thumbnail-remover' ); ?></h3>
+					<ul class="wrt-list">
+						<?php trpl_render_checkbox_list( $folders, 'webp_folders', array(), 'trpl_format_folder_label' ); ?>
+					</ul>
+					<?php trpl_render_advanced_filter_fields( 'webp', $default_filters ); ?>
+					<p>
+						<label>
+							<input type="checkbox" name="include_original" value="1" checked>
+							<?php esc_html_e( 'Also generate a WebP copy for the original upload when it is JPEG or PNG', 'thumbnail-remover' ); ?>
+						</label>
+					</p>
+					<p>
+						<label>
+							<input type="checkbox" name="overwrite_existing" value="1">
+							<?php esc_html_e( 'Overwrite existing .webp files if they already exist', 'thumbnail-remover' ); ?>
+						</label>
+					</p>
+					<p><button type="submit" class="button button-primary"><?php esc_html_e( 'Generate WebP Variants', 'thumbnail-remover' ); ?></button></p>
+				</form>
+				<div class="trpl-progress" id="trpl-webp-progress" hidden>
+					<div class="trpl-progress-bar"><span></span></div>
+					<p class="trpl-progress-text">0%</p>
+				</div>
+				<div id="trpl-webp-results" class="trpl-results"></div>
+			</div>
+
+				<div class="wrt-box">
 				<h2><?php esc_html_e( 'Backup Images', 'thumbnail-remover' ); ?></h2>
 				<div class="wrt-flex">
 					<div>
@@ -2982,7 +3223,7 @@ function trpl_admin_page() {
 					</div>
 					<div class="trpl-card">
 						<strong><?php echo esc_html( (int) $activity_summary['generated_sizes'] ); ?></strong>
-						<span><?php esc_html_e( 'Sizes regenerated', 'thumbnail-remover' ); ?></span>
+						<span><?php esc_html_e( 'Generated derivatives', 'thumbnail-remover' ); ?></span>
 					</div>
 					<div class="trpl-card">
 						<strong><?php echo esc_html( (int) $activity_summary['backup_runs'] ); ?></strong>

@@ -45,6 +45,7 @@ This release is built for site owners, developers, agencies, and anyone trying t
 * Per-size analytics dashboard
 * Reporting and recent activity logs
 * Advanced filters for image format, usage status, and orphan-only cleanup
+* WebP variant generation for JPEG and PNG uploads
 * Image size disable controls for future uploads
 * Media backup export to zip
 * Scheduled cleanup powered by WP-Cron
@@ -80,6 +81,9 @@ Yes. Use the `Regenerate Missing Sizes` section to rebuild missing image sizes i
 = Can I limit cleanup to only orphan thumbnails or probably unused media? =
 Yes. The advanced filters can narrow analysis, cleanup, and regeneration jobs by image format, attachment usage status, and whether the thumbnail files are metadata-tracked or orphaned.
 
+= Can the plugin generate WebP copies for existing media? =
+Yes. The WebP generation tool can create `.webp` copies for JPEG and PNG originals plus their registered thumbnail sizes when your WordPress image editor supports WebP output.
+
 = Is the plugin suitable for larger media libraries? =
 Yes. Analysis, cleanup, and regeneration are processed in batches with visible progress to reduce timeout problems on larger WordPress sites.
 
@@ -114,6 +118,9 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 == Changelog ==
 
 = Unreleased =
+* Added batch WebP generation for JPEG and PNG originals plus registered thumbnail sizes
+* Added WebP generation controls for include-original and overwrite-existing behavior
+* Logged WebP generation runs in the Reporting and Logs section
 * Added permanent delete actions for individual Trash batches and for emptying all plugin Trash.
 * Added optional zip backups for matching thumbnails before they are moved to plugin Trash
 * Stored cleanup backup links with Trash batches so previous cleanup backups remain downloadable from the Trash and Restore table
