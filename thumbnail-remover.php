@@ -22,6 +22,7 @@ define( 'TRPL_DISABLED_SIZES_OPTION', 'trpl_disabled_image_sizes' );
 define( 'TRPL_CUSTOM_SIZES_OPTION', 'trpl_custom_image_sizes' );
 define( 'TRPL_JOBS_OPTION', 'trpl_jobs' );
 define( 'TRPL_ACTIVITY_LOG_OPTION', 'trpl_activity_log' );
+define( 'TRPL_OPTIMIZATION_SETTINGS_OPTION', 'trpl_optimization_settings' );
 define( 'TRPL_SCHEDULE_SETTINGS_OPTION', 'trpl_schedule_settings' );
 define( 'TRPL_SCHEDULE_STATUS_OPTION', 'trpl_schedule_status' );
 define( 'TRPL_CACHE_VERSION_OPTION', 'trpl_cache_version' );
@@ -36,6 +37,35 @@ function trpl_get_scheduled_cleanup_defaults() {
 		'sizes' => array(),
 		'folders' => array(),
 	);
+}
+
+function trpl_get_optimization_settings_defaults() {
+	return array(
+		'provider' => 'tinypng',
+		'api_key' => '',
+		'include_originals' => true,
+		'include_thumbnails' => true,
+	);
+}
+
+function trpl_get_optimization_settings() {
+	$settings = get_option( TRPL_OPTIMIZATION_SETTINGS_OPTION, array() );
+
+	return wp_parse_args( is_array( $settings ) ? $settings : array(), trpl_get_optimization_settings_defaults() );
+}
+
+function trpl_sanitize_optimization_settings( $raw_settings ) {
+	$settings = wp_parse_args(
+		is_array( $raw_settings ) ? $raw_settings : array(),
+		trpl_get_optimization_settings_defaults()
+	);
+
+	$settings['provider'] = 'tinypng';
+	$settings['api_key'] = isset( $settings['api_key'] ) ? sanitize_text_field( $settings['api_key'] ) : '';
+	$settings['include_originals'] = ! empty( $settings['include_originals'] );
+	$settings['include_thumbnails'] = ! empty( $settings['include_thumbnails'] );
+
+	return $settings;
 }
 
 function trpl_get_scheduled_cleanup_settings() {
@@ -261,6 +291,7 @@ function trpl_get_activity_action_label( $action ) {
 		'empty_trash' => __( 'Empty plugin Trash', 'thumbnail-remover' ),
 		'restore' => __( 'Restore trash batch', 'thumbnail-remover' ),
 		'regenerate' => __( 'Regenerate sizes', 'thumbnail-remover' ),
+		'optimize' => __( 'Optimize images', 'thumbnail-remover' ),
 		'webp' => __( 'Generate WebP variants', 'thumbnail-remover' ),
 		'backup' => __( 'Backup images', 'thumbnail-remover' ),
 		'scheduled_cleanup' => __( 'Scheduled cleanup', 'thumbnail-remover' ),
@@ -468,6 +499,7 @@ function trpl_enqueue_scripts( $hook ) {
 			'ajax_url' => admin_url( 'admin-ajax.php' ),
 			'nonce' => wp_create_nonce( 'thumbnail-manager-nonce' ),
 			'availableDates' => trpl_get_available_dates(),
+			'optimizationSettings' => trpl_get_optimization_settings(),
 			'i18n' => array(
 				'processing' => __( 'Processing...', 'thumbnail-remover' ),
 				'error' => __( 'An error occurred. Please try again.', 'thumbnail-remover' ),
@@ -479,6 +511,7 @@ function trpl_enqueue_scripts( $hook ) {
 				'confirmRegenerate' => __( 'Regenerate missing image sizes for the selected attachments?', 'thumbnail-remover' ),
 				'confirmMediaTrash' => __( 'Move this attachment\'s generated thumbnails to Trash?', 'thumbnail-remover' ),
 				'confirmMediaRegenerate' => __( 'Regenerate missing thumbnails for this attachment?', 'thumbnail-remover' ),
+				'confirmOptimize' => __( 'Run bulk image optimization for the selected library scope?', 'thumbnail-remover' ),
 				'confirmGenerateWebp' => __( 'Generate WebP copies for the selected images and thumbnail sizes?', 'thumbnail-remover' ),
 				'alreadyRestored' => __( 'Already restored', 'thumbnail-remover' ),
 				'deletePermanently' => __( 'Delete Permanently', 'thumbnail-remover' ),
@@ -1244,6 +1277,37 @@ function trpl_get_attachment_removal_candidates( $attachment_id ) {
 	}
 
 	return $candidates;
+}
+
+function trpl_get_attachment_optimization_targets( $attachment_id, $include_originals = true, $include_thumbnails = true ) {
+	$targets = array();
+
+	if ( $include_originals ) {
+		$original_path = get_attached_file( $attachment_id );
+		if ( $original_path && file_exists( $original_path ) && trpl_is_webp_convertible_path( $original_path ) ) {
+			$targets[] = array(
+				'attachment_id' => $attachment_id,
+				'path' => $original_path,
+				'label' => __( 'Original image', 'thumbnail-remover' ),
+			);
+		}
+	}
+
+	if ( $include_thumbnails ) {
+		foreach ( trpl_get_attachment_files( $attachment_id ) as $record ) {
+			if ( ! empty( $record['is_orphan'] ) || ! file_exists( $record['path'] ) || ! trpl_is_webp_convertible_path( $record['path'] ) ) {
+				continue;
+			}
+
+			$targets[] = array(
+				'attachment_id' => $attachment_id,
+				'path' => $record['path'],
+				'label' => $record['size_label'],
+			);
+		}
+	}
+
+	return $targets;
 }
 
 function trpl_record_matches_selected_sizes( $record, $selected_sizes ) {
@@ -2190,6 +2254,130 @@ function trpl_process_webp_job( &$job, $batch_size = 6 ) {
 	return $job['processed'] >= $job['total'];
 }
 
+function trpl_tinypng_optimize_file( $file_path, $api_key ) {
+	if ( ! $file_path || ! file_exists( $file_path ) || ! is_file( $file_path ) ) {
+		return new WP_Error( 'trpl_optimize_missing_file', __( 'Image file was not found.', 'thumbnail-remover' ) );
+	}
+
+	if ( '' === $api_key ) {
+		return new WP_Error( 'trpl_optimize_missing_key', __( 'TinyPNG API key is required.', 'thumbnail-remover' ) );
+	}
+
+	$file_contents = file_get_contents( $file_path );
+	if ( false === $file_contents ) {
+		return new WP_Error( 'trpl_optimize_read_failed', __( 'Could not read the image file before optimization.', 'thumbnail-remover' ) );
+	}
+
+	$before_bytes = (int) filesize( $file_path );
+	$response = wp_remote_post(
+		'https://api.tinify.com/shrink',
+		array(
+			'timeout' => 45,
+			'headers' => array(
+				'Authorization' => 'Basic ' . base64_encode( 'api:' . $api_key ),
+				'Content-Type' => 'application/octet-stream',
+			),
+			'body' => $file_contents,
+		)
+	);
+
+	if ( is_wp_error( $response ) ) {
+		return $response;
+	}
+
+	$status_code = (int) wp_remote_retrieve_response_code( $response );
+	$body = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+
+	if ( $status_code < 200 || $status_code >= 300 || empty( $body['output']['url'] ) ) {
+		$message = isset( $body['message'] ) ? (string) $body['message'] : __( 'The optimization API did not return an optimized file.', 'thumbnail-remover' );
+		return new WP_Error( 'trpl_optimize_api_failed', $message );
+	}
+
+	$optimized_response = wp_remote_get(
+		$body['output']['url'],
+		array(
+			'timeout' => 45,
+		)
+	);
+
+	if ( is_wp_error( $optimized_response ) ) {
+		return $optimized_response;
+	}
+
+	$optimized_body = wp_remote_retrieve_body( $optimized_response );
+	if ( '' === $optimized_body ) {
+		return new WP_Error( 'trpl_optimize_download_failed', __( 'The optimized image could not be downloaded.', 'thumbnail-remover' ) );
+	}
+
+	$filesystem = trpl_get_filesystem();
+	if ( ! $filesystem || ! $filesystem->put_contents( $file_path, $optimized_body, FS_CHMOD_FILE ) ) {
+		return new WP_Error( 'trpl_optimize_write_failed', __( 'The optimized image could not be written back to disk.', 'thumbnail-remover' ) );
+	}
+
+	clearstatcache( true, $file_path );
+	$after_bytes = file_exists( $file_path ) ? (int) filesize( $file_path ) : $before_bytes;
+
+	return array(
+		'before_bytes' => $before_bytes,
+		'after_bytes' => $after_bytes,
+		'saved_bytes' => max( 0, $before_bytes - $after_bytes ),
+	);
+}
+
+function trpl_create_optimization_job( $selected_folders, $filters = array(), $settings = array() ) {
+	$filters = trpl_sanitize_advanced_filters( $filters, array( 'allow_source' => false ) );
+	$settings = wp_parse_args( trpl_sanitize_optimization_settings( $settings ), trpl_get_optimization_settings_defaults() );
+	$attachment_ids = trpl_build_regeneration_attachment_ids( $selected_folders, $filters );
+
+	return trpl_start_job(
+		'optimize',
+		array(
+			'attachment_ids' => $attachment_ids,
+			'selected_folders' => $selected_folders,
+			'filters' => $filters,
+			'optimization_settings' => $settings,
+			'processed' => 0,
+			'total' => count( $attachment_ids ),
+			'result' => array(
+				'attachments' => 0,
+				'optimized' => 0,
+				'failed' => 0,
+				'saved_bytes' => 0,
+			),
+		)
+	);
+}
+
+function trpl_process_optimization_job( &$job, $batch_size = 4 ) {
+	$chunk = array_slice( $job['attachment_ids'], $job['processed'], $batch_size );
+	$settings = isset( $job['optimization_settings'] ) ? trpl_sanitize_optimization_settings( $job['optimization_settings'] ) : trpl_get_optimization_settings_defaults();
+
+	foreach ( $chunk as $attachment_id ) {
+		$targets = trpl_get_attachment_optimization_targets(
+			$attachment_id,
+			! empty( $settings['include_originals'] ),
+			! empty( $settings['include_thumbnails'] )
+		);
+
+		foreach ( $targets as $target ) {
+			$result = trpl_tinypng_optimize_file( $target['path'], isset( $settings['api_key'] ) ? $settings['api_key'] : '' );
+			if ( is_wp_error( $result ) ) {
+				$job['result']['failed']++;
+				continue;
+			}
+
+			$job['result']['optimized']++;
+			$job['result']['saved_bytes'] += isset( $result['saved_bytes'] ) ? (int) $result['saved_bytes'] : 0;
+		}
+
+		$job['result']['attachments']++;
+	}
+
+	$job['processed'] += count( $chunk );
+
+	return $job['processed'] >= $job['total'];
+}
+
 function trpl_ajax_preview_delete() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
 	trpl_require_manage_options();
@@ -2708,6 +2896,78 @@ function trpl_ajax_process_webp_generation() {
 }
 add_action( 'wp_ajax_trpl_process_webp_generation', 'trpl_ajax_process_webp_generation' );
 
+function trpl_ajax_start_optimization() {
+	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
+	trpl_require_manage_options();
+
+	$selected_folders = trpl_normalize_text_list( trpl_get_post_array_input( 'folders' ) );
+	$filters = trpl_get_request_advanced_filters( array( 'allow_source' => false ) );
+	$settings = trpl_sanitize_optimization_settings(
+		array(
+			'provider' => trpl_get_post_scalar_input( 'provider', 'tinypng' ),
+			'api_key' => trpl_get_post_scalar_input( 'api_key' ),
+			'include_originals' => trpl_get_post_scalar_input( 'include_originals', '1' ),
+			'include_thumbnails' => trpl_get_post_scalar_input( 'include_thumbnails', '1' ),
+		)
+	);
+
+	if ( empty( $settings['api_key'] ) ) {
+		wp_send_json_error( array( 'message' => __( 'Please enter a TinyPNG API key before running bulk optimization.', 'thumbnail-remover' ) ) );
+	}
+
+	$job = trpl_create_optimization_job( $selected_folders, $filters, $settings );
+
+	wp_send_json_success(
+		array(
+			'job_id' => $job['id'],
+			'total' => $job['total'],
+		)
+	);
+}
+add_action( 'wp_ajax_trpl_start_optimization', 'trpl_ajax_start_optimization' );
+
+function trpl_ajax_process_optimization() {
+	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
+	trpl_require_manage_options();
+
+	$job_id = isset( $_POST['job_id'] ) ? sanitize_text_field( wp_unslash( $_POST['job_id'] ) ) : '';
+	$job = trpl_get_job( $job_id );
+
+	if ( ! $job || 'optimize' !== $job['type'] ) {
+		wp_send_json_error( array( 'message' => __( 'Optimization job not found.', 'thumbnail-remover' ) ) );
+	}
+
+	$is_complete = trpl_process_optimization_job( $job );
+	trpl_save_job( $job );
+
+	$response = array(
+		'progress' => trpl_calculate_progress( $job['processed'], $job['total'] ),
+		'processed' => $job['processed'],
+		'total' => $job['total'],
+		'complete' => $is_complete,
+	);
+
+	if ( $is_complete ) {
+		$response['result'] = $job['result'];
+		trpl_add_activity_log(
+			array(
+				'action' => 'optimize',
+				'status' => 'success',
+				'message' => __( 'Bulk image optimization completed successfully.', 'thumbnail-remover' ),
+				'job_id' => $job['id'],
+				'attachments' => (int) $job['result']['attachments'],
+				'files' => (int) $job['result']['optimized'],
+				'bytes' => (int) $job['result']['saved_bytes'],
+				'folders' => isset( $job['selected_folders'] ) ? $job['selected_folders'] : array(),
+			)
+		);
+		trpl_delete_job( $job_id );
+	}
+
+	wp_send_json_success( $response );
+}
+add_action( 'wp_ajax_trpl_process_optimization', 'trpl_ajax_process_optimization' );
+
 function trpl_backup_images_ajax() {
 	check_ajax_referer( 'thumbnail-manager-nonce', 'nonce' );
 	trpl_require_manage_options();
@@ -3208,6 +3468,19 @@ function trpl_admin_page() {
 			trpl_admin_notice( __( 'Scheduled cleanup settings updated successfully.', 'thumbnail-remover' ) );
 		}
 
+		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) && '' !== trpl_get_post_scalar_input( 'save_optimization_settings' ) ) {
+			$optimization_settings = trpl_sanitize_optimization_settings(
+				array(
+					'provider' => trpl_get_post_scalar_input( 'provider', 'tinypng' ),
+					'api_key' => trpl_get_post_scalar_input( 'api_key' ),
+					'include_originals' => trpl_get_post_scalar_input( 'include_originals', '1' ),
+					'include_thumbnails' => trpl_get_post_scalar_input( 'include_thumbnails', '1' ),
+				)
+			);
+			update_option( TRPL_OPTIMIZATION_SETTINGS_OPTION, $optimization_settings, false );
+			trpl_admin_notice( __( 'Bulk optimization settings updated successfully.', 'thumbnail-remover' ) );
+		}
+
 		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) && '' !== trpl_get_post_scalar_input( 'clear_activity_log' ) ) {
 			trpl_clear_activity_log();
 			trpl_admin_notice( __( 'Activity log cleared successfully.', 'thumbnail-remover' ) );
@@ -3219,6 +3492,7 @@ function trpl_admin_page() {
 	$disabled_sizes = trpl_normalize_disabled_sizes( get_option( TRPL_DISABLED_SIZES_OPTION, array() ) );
 	$current_custom_sizes = trpl_get_custom_sizes();
 	$scheduled_cleanup_settings = trpl_get_scheduled_cleanup_settings();
+	$optimization_settings = trpl_get_optimization_settings();
 	$scheduled_cleanup_status = trpl_get_scheduled_cleanup_status();
 	$next_scheduled_cleanup = wp_next_scheduled( TRPL_SCHEDULE_EVENT_HOOK );
 	$available_dates = trpl_get_available_dates();
@@ -3531,6 +3805,46 @@ function trpl_admin_page() {
 					<p class="trpl-progress-text">0%</p>
 				</div>
 				<div id="trpl-webp-results" class="trpl-results"></div>
+			</div>
+
+				<div class="wrt-box">
+				<h2><?php esc_html_e( 'Bulk Image Optimization', 'thumbnail-remover' ); ?></h2>
+				<p><?php esc_html_e( 'Connect a TinyPNG API key and run batch optimization for original uploads, generated thumbnails, or both. This can reduce storage even when you keep the files instead of deleting them.', 'thumbnail-remover' ); ?></p>
+				<form method="post">
+					<?php wp_nonce_field( 'thumbnail-manager-nonce', 'thumbnail_manager_nonce' ); ?>
+					<p>
+						<label for="trpl-optimization-provider"><strong><?php esc_html_e( 'Provider', 'thumbnail-remover' ); ?></strong></label><br>
+						<select id="trpl-optimization-provider" name="provider">
+							<option value="tinypng" <?php selected( isset( $optimization_settings['provider'] ) ? $optimization_settings['provider'] : 'tinypng', 'tinypng' ); ?>><?php esc_html_e( 'TinyPNG / TinyJPG', 'thumbnail-remover' ); ?></option>
+						</select>
+					</p>
+					<p>
+						<label for="trpl-optimization-api-key"><strong><?php esc_html_e( 'API key', 'thumbnail-remover' ); ?></strong></label><br>
+						<input type="password" id="trpl-optimization-api-key" name="api_key" value="<?php echo esc_attr( isset( $optimization_settings['api_key'] ) ? $optimization_settings['api_key'] : '' ); ?>" class="regular-text" autocomplete="off">
+					</p>
+					<p class="description"><?php esc_html_e( 'The current implementation uses TinyPNG-compatible optimization. Imagify-style provider support can be layered in later without changing the batch workflow.', 'thumbnail-remover' ); ?></p>
+					<p>
+						<label><input type="checkbox" name="include_originals" value="1" <?php checked( ! empty( $optimization_settings['include_originals'] ) ); ?>> <?php esc_html_e( 'Optimize original uploads', 'thumbnail-remover' ); ?></label><br>
+						<label><input type="checkbox" name="include_thumbnails" value="1" <?php checked( ! empty( $optimization_settings['include_thumbnails'] ) ); ?>> <?php esc_html_e( 'Optimize generated thumbnail files', 'thumbnail-remover' ); ?></label>
+					</p>
+					<p><input type="submit" name="save_optimization_settings" class="button" value="<?php esc_attr_e( 'Save Optimization Settings', 'thumbnail-remover' ); ?>"></p>
+				</form>
+
+				<form id="trpl-optimize-form">
+					<h3><?php esc_html_e( 'Limit bulk optimization to folders', 'thumbnail-remover' ); ?></h3>
+					<ul class="wrt-list">
+						<?php trpl_render_checkbox_list( $folders, 'optimize_folders', array(), 'trpl_format_folder_label' ); ?>
+					</ul>
+					<?php trpl_render_advanced_filter_fields( 'optimize', $default_filters ); ?>
+					<p class="trpl-action-row">
+						<button type="submit" class="button button-primary"><?php esc_html_e( 'Run Bulk Optimization', 'thumbnail-remover' ); ?></button>
+					</p>
+				</form>
+				<div class="trpl-progress" id="trpl-optimize-progress" hidden>
+					<div class="trpl-progress-bar"><span></span></div>
+					<p class="trpl-progress-text">0%</p>
+				</div>
+				<div id="trpl-optimize-results" class="trpl-results"></div>
 			</div>
 
 				<div class="wrt-box">
