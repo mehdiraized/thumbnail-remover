@@ -1,4 +1,6 @@
 jQuery(function ($) {
+	let customSizeRowIndex = $("#trpl-custom-sizes-body tr").length;
+
 	function collectValues(selector) {
 		return $(selector)
 			.map(function () {
@@ -191,6 +193,31 @@ jQuery(function ($) {
 
 		return html;
 	}
+
+	$("#trpl-add-custom-size-row").on("click", function () {
+		const index = customSizeRowIndex++;
+		const rowHtml =
+			'<tr>' +
+			'<td><input type="text" name="custom_sizes[' + index + '][name]" value="" class="regular-text" placeholder="hero_banner"></td>' +
+			'<td><input type="text" name="custom_sizes[' + index + '][label]" value="" class="regular-text" placeholder="Hero Banner"></td>' +
+			'<td><input type="number" min="0" name="custom_sizes[' + index + '][width]" value="" class="small-text"></td>' +
+			'<td><input type="number" min="0" name="custom_sizes[' + index + '][height]" value="" class="small-text"></td>' +
+			'<td><label><input type="checkbox" name="custom_sizes[' + index + '][crop]" value="1"> Hard crop</label></td>' +
+			'<td><button type="button" class="button-link-delete trpl-remove-custom-size-row">Remove</button></td>' +
+			"</tr>";
+
+		$("#trpl-custom-sizes-body").append(rowHtml);
+	});
+
+	$(document).on("click", ".trpl-remove-custom-size-row", function () {
+		const $rows = $("#trpl-custom-sizes-body tr");
+		if ($rows.length === 1) {
+			$(this).closest("tr").find("input").val("").prop("checked", false);
+			return;
+		}
+
+		$(this).closest("tr").remove();
+	});
 
 	$("#trpl-run-analysis").on("click", function () {
 		const $progress = $("#trpl-analysis-progress");
