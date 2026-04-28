@@ -586,6 +586,70 @@ function trpl_render_media_library_column( $column_name, $attachment_id ) {
 }
 add_action( 'manage_media_custom_column', 'trpl_render_media_library_column', 10, 2 );
 
+function trpl_add_media_library_bulk_actions( $actions ) {
+	$actions['trpl_regenerate_missing_bulk'] = __( 'Regenerate missing thumbnails', 'thumbnail-remover' );
+	$actions['trpl_regenerate_all_bulk'] = __( 'Regenerate all thumbnails', 'thumbnail-remover' );
+
+	return $actions;
+}
+add_filter( 'bulk_actions-upload', 'trpl_add_media_library_bulk_actions' );
+
+function trpl_handle_media_library_bulk_actions( $redirect_url, $action, $post_ids ) {
+	if ( ! in_array( $action, array( 'trpl_regenerate_missing_bulk', 'trpl_regenerate_all_bulk' ), true ) ) {
+		return $redirect_url;
+	}
+
+	$mode = 'trpl_regenerate_all_bulk' === $action ? 'all' : 'missing';
+	$processed = 0;
+	$generated = 0;
+
+	foreach ( array_map( 'intval', (array) $post_ids ) as $attachment_id ) {
+		if ( $attachment_id <= 0 || 0 !== strpos( (string) get_post_mime_type( $attachment_id ), 'image/' ) ) {
+			continue;
+		}
+
+		$result = trpl_regenerate_attachment_sizes( $attachment_id, array(), $mode );
+		$processed += isset( $result['attachments'] ) ? (int) $result['attachments'] : 0;
+		$generated += isset( $result['generated'] ) ? (int) $result['generated'] : 0;
+	}
+
+	trpl_add_activity_log(
+		array(
+			'action' => 'regenerate',
+			'status' => 'success',
+			'message' => 'all' === $mode ? __( 'Selected attachments were fully regenerated from the Media Library.', 'thumbnail-remover' ) : __( 'Selected attachments were regenerated for missing sizes from the Media Library.', 'thumbnail-remover' ),
+			'attachments' => $processed,
+			'generated' => $generated,
+		)
+	);
+
+	return add_query_arg(
+		array(
+			'trpl_bulk_regenerated' => $processed,
+			'trpl_bulk_generated_sizes' => $generated,
+			'trpl_bulk_mode' => $mode,
+		),
+		$redirect_url
+	);
+}
+add_filter( 'handle_bulk_actions-upload', 'trpl_handle_media_library_bulk_actions', 10, 3 );
+
+function trpl_render_media_library_bulk_notice() {
+	if ( ! is_admin() || ! isset( $_GET['trpl_bulk_regenerated'] ) ) {
+		return;
+	}
+
+	$processed = (int) wp_unslash( $_GET['trpl_bulk_regenerated'] );
+	$generated = isset( $_GET['trpl_bulk_generated_sizes'] ) ? (int) wp_unslash( $_GET['trpl_bulk_generated_sizes'] ) : 0;
+	$mode = isset( $_GET['trpl_bulk_mode'] ) ? sanitize_key( wp_unslash( $_GET['trpl_bulk_mode'] ) ) : 'missing';
+	$message = 'all' === $mode
+		? sprintf( __( 'Regenerated all thumbnails for %1$d attachment(s) and rebuilt %2$d size(s).', 'thumbnail-remover' ), $processed, $generated )
+		: sprintf( __( 'Regenerated missing thumbnails for %1$d attachment(s) and built %2$d size(s).', 'thumbnail-remover' ), $processed, $generated );
+
+	printf( '<div class="notice notice-success is-dismissible"><p>%s</p></div>', esc_html( $message ) );
+}
+add_action( 'admin_notices', 'trpl_render_media_library_bulk_notice' );
+
 function trpl_admin_notice( $message, $type = 'updated' ) {
 	printf( '<div class="%1$s notice"><p>%2$s</p></div>', esc_attr( $type ), wp_kses_post( $message ) );
 }
@@ -2104,7 +2168,7 @@ function trpl_process_delete_job( &$job, $batch_size = 40 ) {
 	return $job['processed'] >= $job['total'];
 }
 
-function trpl_create_regenerate_job( $selected_sizes, $selected_folders, $filters = array() ) {
+function trpl_create_regenerate_job( $selected_sizes, $selected_folders, $filters = array(), $mode = 'missing' ) {
 	$filters = trpl_sanitize_advanced_filters( $filters, array( 'allow_source' => false ) );
 	$attachment_ids = trpl_build_regeneration_attachment_ids( $selected_folders, $filters );
 
@@ -2115,6 +2179,7 @@ function trpl_create_regenerate_job( $selected_sizes, $selected_folders, $filter
 			'selected_sizes' => $selected_sizes,
 			'selected_folders' => $selected_folders,
 			'filters' => $filters,
+			'mode' => 'all' === $mode ? 'all' : 'missing',
 			'processed' => 0,
 			'total' => count( $attachment_ids ),
 			'result' => array(
@@ -2128,45 +2193,12 @@ function trpl_create_regenerate_job( $selected_sizes, $selected_folders, $filter
 function trpl_process_regenerate_job( &$job, $batch_size = 8 ) {
 	$chunk = array_slice( $job['attachment_ids'], $job['processed'], $batch_size );
 	$selected_sizes = $job['selected_sizes'];
+	$mode = isset( $job['mode'] ) && 'all' === $job['mode'] ? 'all' : 'missing';
 
 	foreach ( $chunk as $attachment_id ) {
-		$before = wp_get_attachment_metadata( $attachment_id );
-		$before_sizes = isset( $before['sizes'] ) && is_array( $before['sizes'] ) ? array_keys( $before['sizes'] ) : array();
-
-		$filter = null;
-		if ( ! empty( $selected_sizes ) ) {
-			$filter = function ( $sizes ) use ( $selected_sizes ) {
-				return array_intersect_key( $sizes, array_flip( $selected_sizes ) );
-			};
-			add_filter( 'intermediate_image_sizes_advanced', $filter );
-		}
-
-		if ( function_exists( 'wp_update_image_subsizes' ) ) {
-			wp_update_image_subsizes( $attachment_id );
-		} else {
-			$file = get_attached_file( $attachment_id );
-			if ( $file && file_exists( $file ) ) {
-				$metadata = wp_generate_attachment_metadata( $attachment_id, $file );
-				if ( ! is_wp_error( $metadata ) && ! empty( $metadata ) ) {
-					wp_update_attachment_metadata( $attachment_id, $metadata );
-				}
-			}
-		}
-
-		if ( $filter ) {
-			remove_filter( 'intermediate_image_sizes_advanced', $filter );
-		}
-
-		$after = wp_get_attachment_metadata( $attachment_id );
-		$after_sizes = isset( $after['sizes'] ) && is_array( $after['sizes'] ) ? array_keys( $after['sizes'] ) : array();
-		$generated_now = array_diff( $after_sizes, $before_sizes );
-
-		if ( ! empty( $selected_sizes ) ) {
-			$generated_now = array_intersect( $generated_now, $selected_sizes );
-		}
-
-		$job['result']['attachments']++;
-		$job['result']['generated'] += count( $generated_now );
+		$result = trpl_regenerate_attachment_sizes( $attachment_id, $selected_sizes, $mode );
+		$job['result']['attachments'] += isset( $result['attachments'] ) ? (int) $result['attachments'] : 0;
+		$job['result']['generated'] += isset( $result['generated'] ) ? (int) $result['generated'] : 0;
 	}
 
 	$job['processed'] += count( $chunk );
@@ -2214,6 +2246,42 @@ function trpl_regenerate_attachment_missing_sizes( $attachment_id, $selected_siz
 		'attachments' => 1,
 		'generated' => count( $generated_now ),
 	);
+}
+
+function trpl_regenerate_attachment_sizes( $attachment_id, $selected_sizes = array(), $mode = 'missing' ) {
+	$mode = 'all' === $mode ? 'all' : 'missing';
+
+	if ( 'all' !== $mode ) {
+		return trpl_regenerate_attachment_missing_sizes( $attachment_id, $selected_sizes );
+	}
+
+	$metadata = wp_get_attachment_metadata( $attachment_id );
+	$metadata_sizes = isset( $metadata['sizes'] ) && is_array( $metadata['sizes'] ) ? $metadata['sizes'] : array();
+	$target_sizes = ! empty( $selected_sizes ) ? array_values( array_intersect( array_keys( trpl_get_all_image_sizes() ), $selected_sizes ) ) : array_keys( trpl_get_all_image_sizes() );
+	$deleted_existing = 0;
+
+	foreach ( $target_sizes as $size_name ) {
+		if ( empty( $metadata_sizes[ $size_name ]['file'] ) ) {
+			continue;
+		}
+
+		$original_path = get_attached_file( $attachment_id );
+		$size_path = trailingslashit( dirname( $original_path ) ) . $metadata_sizes[ $size_name ]['file'];
+		if ( file_exists( $size_path ) ) {
+			wp_delete_file( $size_path );
+		}
+
+		unset( $metadata_sizes[ $size_name ] );
+		$deleted_existing++;
+	}
+
+	$metadata['sizes'] = $metadata_sizes;
+	wp_update_attachment_metadata( $attachment_id, $metadata );
+
+	$result = trpl_regenerate_attachment_missing_sizes( $attachment_id, $target_sizes );
+	$result['generated'] = max( isset( $result['generated'] ) ? (int) $result['generated'] : 0, $deleted_existing );
+
+	return $result;
 }
 
 function trpl_create_webp_job( $selected_sizes, $selected_folders, $filters = array(), $include_original = true, $overwrite_existing = false ) {
@@ -2800,7 +2868,8 @@ function trpl_ajax_start_regenerate() {
 	$selected_sizes = trpl_normalize_text_list( trpl_get_post_array_input( 'sizes' ) );
 	$selected_folders = trpl_normalize_text_list( trpl_get_post_array_input( 'folders' ) );
 	$filters = trpl_get_request_advanced_filters( array( 'allow_source' => false ) );
-	$job = trpl_create_regenerate_job( $selected_sizes, $selected_folders, $filters );
+	$mode = 'all' === trpl_get_post_scalar_input( 'regenerate_mode', 'missing' ) ? 'all' : 'missing';
+	$job = trpl_create_regenerate_job( $selected_sizes, $selected_folders, $filters, $mode );
 
 	wp_send_json_success(
 		array(
@@ -2838,7 +2907,7 @@ function trpl_ajax_process_regenerate() {
 			array(
 				'action' => 'regenerate',
 				'status' => 'success',
-				'message' => __( 'Regeneration completed successfully.', 'thumbnail-remover' ),
+				'message' => isset( $job['mode'] ) && 'all' === $job['mode'] ? __( 'Full regeneration completed successfully.', 'thumbnail-remover' ) : __( 'Regeneration completed successfully.', 'thumbnail-remover' ),
 				'job_id' => $job['id'],
 				'attachments' => (int) $job['result']['attachments'],
 				'generated' => (int) $job['result']['generated'],
@@ -3771,8 +3840,15 @@ function trpl_admin_page() {
 
 				<div class="wrt-box">
 				<h2><?php esc_html_e( 'Regenerate Missing Sizes', 'thumbnail-remover' ); ?></h2>
-				<p><?php esc_html_e( 'After keeping or re-enabling image sizes, regenerate only what is missing in batch mode.', 'thumbnail-remover' ); ?></p>
+				<p><?php esc_html_e( 'After changing theme settings or image sizes, regenerate missing sizes or force a full rebuild across the selected image scope.', 'thumbnail-remover' ); ?></p>
 				<form id="trpl-regenerate-form">
+					<p>
+						<label for="trpl-regenerate-mode"><strong><?php esc_html_e( 'Regeneration mode', 'thumbnail-remover' ); ?></strong></label><br>
+						<select id="trpl-regenerate-mode" name="regenerate_mode">
+							<option value="missing"><?php esc_html_e( 'Missing sizes only', 'thumbnail-remover' ); ?></option>
+							<option value="all"><?php esc_html_e( 'Regenerate all selected sizes', 'thumbnail-remover' ); ?></option>
+						</select>
+					</p>
 					<h3><?php esc_html_e( 'Select sizes to regenerate', 'thumbnail-remover' ); ?></h3>
 					<ul class="wrt-list">
 						<?php trpl_render_checkbox_list( $registered_sizes, 'regen_sizes', array(), 'trpl_format_size_label' ); ?>
