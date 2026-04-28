@@ -116,6 +116,7 @@ jQuery(function ($) {
 			{ label: "Attachments scanned", value: summary.attachments || 0 },
 			{ label: "Thumbnail files", value: summary.thumbnail_files || 0 },
 			{ label: "Thumbnail storage", value: formatBytes(summary.thumbnail_bytes || 0) },
+			{ label: "Thumbnail references found", value: summary.used_thumbnail_files || 0 },
 			{ label: "Orphan thumbnails", value: summary.orphans || 0 },
 			{ label: "Missing size records", value: summary.missing_sizes || 0 },
 			{ label: "Probably unused media", value: summary.unused_media || 0 },
@@ -128,17 +129,18 @@ jQuery(function ($) {
 		html += "</div>";
 
 		html += '<h3>Per-size analytics</h3>';
-		html += '<table class="widefat striped"><thead><tr><th>Size</th><th>Files</th><th>Storage</th><th>Missing</th><th>Orphans</th><th>Last seen</th></tr></thead><tbody>';
+		html += '<table class="widefat striped"><thead><tr><th>Size</th><th>Files</th><th>Used refs</th><th>Storage</th><th>Missing</th><th>Orphans</th><th>Last seen</th></tr></thead><tbody>';
 
 		const sizeRows = Object.keys(summary.size_analytics || {}).sort();
 		if (!sizeRows.length) {
-			html += "<tr><td colspan='6'>No size data found.</td></tr>";
+			html += "<tr><td colspan='7'>No size data found.</td></tr>";
 		} else {
 			sizeRows.forEach(function (key) {
 				const row = summary.size_analytics[key];
 				html += "<tr>";
 				html += "<td>" + row.label + (row.dimensions ? " <code>" + row.dimensions + "</code>" : "") + "</td>";
 				html += "<td>" + (row.count || 0) + "</td>";
+				html += "<td>" + (row.used || 0) + "</td>";
 				html += "<td>" + formatBytes(row.bytes || 0) + "</td>";
 				html += "<td>" + (row.missing || 0) + "</td>";
 				html += "<td>" + (row.orphans || 0) + "</td>";

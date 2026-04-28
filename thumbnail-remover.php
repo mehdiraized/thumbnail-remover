@@ -1511,6 +1511,15 @@ function trpl_attachment_usage_search_exists( $needle ) {
 	return $search_cache[ $needle ];
 }
 
+function trpl_is_thumbnail_record_used( $record ) {
+	$path = isset( $record['path'] ) ? (string) $record['path'] : '';
+	if ( '' === $path ) {
+		return false;
+	}
+
+	return trpl_attachment_usage_search_exists( wp_basename( $path ) );
+}
+
 function trpl_build_unused_media_entry( $attachment_id ) {
 	$file = get_post_meta( $attachment_id, '_wp_attached_file', true );
 	$path = $file ? trpl_get_upload_base_dir() . ltrim( $file, '/' ) : '';
@@ -1536,6 +1545,7 @@ function trpl_init_size_analytics() {
 			'dimensions' => $details['width'] . 'x' . $details['height'],
 			'count' => 0,
 			'bytes' => 0,
+			'used' => 0,
 			'last_seen' => '',
 			'missing' => 0,
 			'orphans' => 0,
@@ -1932,6 +1942,8 @@ function trpl_create_analysis_job( $selected_folders, $filters = array() ) {
 				'attachments' => 0,
 				'thumbnail_files' => 0,
 				'thumbnail_bytes' => 0,
+				'used_thumbnail_files' => 0,
+				'unused_thumbnail_files' => 0,
 				'orphans' => 0,
 				'missing_sizes' => 0,
 				'unused_media' => 0,
@@ -1971,6 +1983,7 @@ function trpl_process_analysis_job( &$job, $batch_size = 12 ) {
 					'dimensions' => '',
 					'count' => 0,
 					'bytes' => 0,
+					'used' => 0,
 					'last_seen' => '',
 					'missing' => 0,
 					'orphans' => 0,
@@ -1980,6 +1993,13 @@ function trpl_process_analysis_job( &$job, $batch_size = 12 ) {
 			$summary['size_analytics'][ $record['size_label'] ]['count']++;
 			$summary['size_analytics'][ $record['size_label'] ]['bytes'] += (int) $record['bytes'];
 			$summary['size_analytics'][ $record['size_label'] ]['last_seen'] = $attachment_date;
+
+			if ( trpl_is_thumbnail_record_used( $record ) ) {
+				$summary['used_thumbnail_files']++;
+				$summary['size_analytics'][ $record['size_label'] ]['used']++;
+			} else {
+				$summary['unused_thumbnail_files']++;
+			}
 
 			if ( ! empty( $record['is_orphan'] ) ) {
 				$summary['orphans']++;

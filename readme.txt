@@ -49,6 +49,7 @@ This release is built for site owners, developers, agencies, and anyone trying t
 * Media Library thumbnail summary column with per-image quick actions
 * Custom image size manager with visual previews
 * Bulk image optimization with TinyPNG-compatible API support
+* Size usage analysis based on content and stored meta references
 * Image size disable controls for future uploads
 * Media backup export to zip
 * Scheduled cleanup powered by WP-Cron
@@ -132,6 +133,7 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 * Added Media Library quick actions to move one image's thumbnails to Trash or regenerate missing sizes
 * Added a custom size manager for registering, editing, and removing custom image sizes with visual previews
 * Added TinyPNG-compatible bulk optimization for originals and generated thumbnails
+* Added size-usage analysis so the analytics table reports which thumbnail sizes appear in content and meta references
 * Added batch WebP generation for JPEG and PNG originals plus registered thumbnail sizes
 * Added WebP generation controls for include-original and overwrite-existing behavior
 * Logged WebP generation runs in the Reporting and Logs section
