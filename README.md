@@ -36,6 +36,7 @@ Instead of removing thumbnails with a single irreversible step, the current rele
 - Advanced filters for format, usage status, and orphan-only cleanup
 - WebP variant generation for JPEG and PNG uploads
 - Media Library thumbnail summary column with per-image quick actions
+- Custom image size manager with visual previews
 - Existing image-size disable controls
 - Zip backups for uploads and cleanup batches
 - Scheduled cleanup with configurable frequency and scope
@@ -208,6 +209,7 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 
 - Added a Media Library column showing thumbnail totals, storage, orphan counts, and missing-size hints per image
 - Added Media Library quick actions to move one image's thumbnails to Trash or regenerate missing sizes
+- Added a custom size manager for registering, editing, and removing custom image sizes with visual previews
 - Added batch WebP generation for JPEG and PNG originals plus registered thumbnail sizes
 - Added WebP generation controls for include-original and overwrite-existing behavior
 - Logged WebP generation runs in the Reporting and Logs section
@@ -266,3 +268,6 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 If the plugin saves you time, you can support future development here:
 
 [Buy Me a Coffee](https://www.buymeacoffee.com/mehdiraized)
+### Custom Size Manager
+
+Create, update, and remove custom image sizes from the plugin screen. The manager includes a simple visual preview so you can sanity-check new dimensions before you save them for future uploads.

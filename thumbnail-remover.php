@@ -19,6 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'TRPL_VERSION', '2.2.3' );
 define( 'TRPL_DISABLED_SIZES_OPTION', 'trpl_disabled_image_sizes' );
+define( 'TRPL_CUSTOM_SIZES_OPTION', 'trpl_custom_image_sizes' );
 define( 'TRPL_JOBS_OPTION', 'trpl_jobs' );
 define( 'TRPL_ACTIVITY_LOG_OPTION', 'trpl_activity_log' );
 define( 'TRPL_SCHEDULE_SETTINGS_OPTION', 'trpl_schedule_settings' );
@@ -633,10 +634,64 @@ function trpl_get_trash_base_dir() {
 	return trpl_get_upload_base_dir() . TRPL_TRASH_DIRNAME . '/';
 }
 
-function trpl_get_all_image_sizes() {
+function trpl_get_custom_sizes() {
+	$sizes = get_option( TRPL_CUSTOM_SIZES_OPTION, array() );
+
+	return is_array( $sizes ) ? $sizes : array();
+}
+
+function trpl_sanitize_custom_sizes( $raw_sizes ) {
+	$sanitized = array();
+	$raw_sizes = is_array( $raw_sizes ) ? $raw_sizes : array();
+
+	foreach ( $raw_sizes as $row ) {
+		if ( ! is_array( $row ) ) {
+			continue;
+		}
+
+		$name = isset( $row['name'] ) ? sanitize_key( $row['name'] ) : '';
+		$label = isset( $row['label'] ) ? sanitize_text_field( $row['label'] ) : '';
+		$width = isset( $row['width'] ) ? max( 0, (int) $row['width'] ) : 0;
+		$height = isset( $row['height'] ) ? max( 0, (int) $row['height'] ) : 0;
+		$crop = ! empty( $row['crop'] );
+
+		if ( '' === $name || ( 0 === $width && 0 === $height ) ) {
+			continue;
+		}
+
+		$sanitized[ $name ] = array(
+			'label' => '' !== $label ? $label : $name,
+			'width' => $width,
+			'height' => $height,
+			'crop' => $crop,
+		);
+	}
+
+	ksort( $sanitized );
+
+	return $sanitized;
+}
+
+function trpl_register_custom_sizes() {
+	foreach ( trpl_get_custom_sizes() as $name => $size ) {
+		add_image_size(
+			$name,
+			isset( $size['width'] ) ? (int) $size['width'] : 0,
+			isset( $size['height'] ) ? (int) $size['height'] : 0,
+			! empty( $size['crop'] )
+		);
+	}
+}
+add_action( 'init', 'trpl_register_custom_sizes', 20 );
+
+function trpl_get_all_image_sizes( $force_refresh = false ) {
 	global $_wp_additional_image_sizes;
 
 	static $sizes = null;
+
+	if ( $force_refresh ) {
+		$sizes = null;
+	}
 
 	if ( null !== $sizes ) {
 		return $sizes;
@@ -2844,6 +2899,32 @@ function trpl_format_folder_label( $folder, $count ) {
 	return esc_html( sprintf( '%1$s (%2$d %3$s)', $folder, $count, _n( 'attachment', 'attachments', $count, 'thumbnail-remover' ) ) );
 }
 
+function trpl_render_custom_size_preview_cards( $custom_sizes ) {
+	if ( empty( $custom_sizes ) ) {
+		echo '<p>' . esc_html__( 'No custom image sizes have been configured yet.', 'thumbnail-remover' ) . '</p>';
+		return;
+	}
+
+	echo '<div class="trpl-size-preview-grid">';
+
+	foreach ( $custom_sizes as $name => $size ) {
+		$width = isset( $size['width'] ) ? max( 1, (int) $size['width'] ) : 1;
+		$height = isset( $size['height'] ) ? max( 1, (int) $size['height'] ) : 1;
+		$aspect_ratio = min( 140, max( 40, round( ( $height / $width ) * 100 ) ) );
+		?>
+		<div class="trpl-size-preview-card">
+			<div class="trpl-size-preview-art" style="padding-top: <?php echo esc_attr( $aspect_ratio ); ?>%;">
+				<span><?php echo esc_html( strtoupper( $name ) ); ?></span>
+			</div>
+			<strong><?php echo esc_html( isset( $size['label'] ) ? $size['label'] : $name ); ?></strong>
+			<small><?php echo esc_html( sprintf( '%1$dx%2$d%s', $width, $height, ! empty( $size['crop'] ) ? ' cropped' : '' ) ); ?></small>
+		</div>
+		<?php
+	}
+
+	echo '</div>';
+}
+
 function trpl_get_pro_feature_rows() {
 	return array(
 		array(
@@ -3109,6 +3190,15 @@ function trpl_admin_page() {
 			trpl_admin_notice( __( 'Image size settings updated successfully.', 'thumbnail-remover' ) );
 		}
 
+		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) && '' !== trpl_get_post_scalar_input( 'save_custom_sizes' ) ) {
+			$custom_sizes = trpl_sanitize_custom_sizes( trpl_get_post_array_input( 'custom_sizes' ) );
+			update_option( TRPL_CUSTOM_SIZES_OPTION, $custom_sizes, false );
+			trpl_register_custom_sizes();
+			trpl_get_all_image_sizes( true );
+			trpl_bump_cache_version();
+			trpl_admin_notice( __( 'Custom image sizes updated successfully.', 'thumbnail-remover' ) );
+		}
+
 		if ( wp_verify_nonce( $nonce, 'thumbnail-manager-nonce' ) && '' !== trpl_get_post_scalar_input( 'save_scheduled_cleanup' ) ) {
 			$scheduled_cleanup_settings = trpl_sanitize_scheduled_cleanup_settings(
 				trpl_get_post_array_input( 'scheduled_cleanup' )
@@ -3127,6 +3217,7 @@ function trpl_admin_page() {
 	$registered_sizes = trpl_get_all_image_sizes();
 	$folders = trpl_get_upload_folders_with_count();
 	$disabled_sizes = trpl_normalize_disabled_sizes( get_option( TRPL_DISABLED_SIZES_OPTION, array() ) );
+	$current_custom_sizes = trpl_get_custom_sizes();
 	$scheduled_cleanup_settings = trpl_get_scheduled_cleanup_settings();
 	$scheduled_cleanup_status = trpl_get_scheduled_cleanup_status();
 	$next_scheduled_cleanup = wp_next_scheduled( TRPL_SCHEDULE_EVENT_HOOK );
@@ -3170,6 +3261,55 @@ function trpl_admin_page() {
 					<p><strong><?php esc_html_e( 'Note:', 'thumbnail-remover' ); ?></strong> <?php esc_html_e( 'Disabling a size prevents future generation only. Existing files stay untouched until you move them to Trash below.', 'thumbnail-remover' ); ?></p>
 					<p><input type="submit" name="disable_sizes" class="button button-primary" value="<?php esc_attr_e( 'Save Changes', 'thumbnail-remover' ); ?>"></p>
 				</form>
+			</div>
+
+				<div class="wrt-box">
+				<h2><?php esc_html_e( 'Custom Size Manager', 'thumbnail-remover' ); ?></h2>
+				<p><?php esc_html_e( 'Add, edit, or remove custom image sizes directly from the plugin interface. These custom sizes apply to future uploads, and you can use the preview cards below to sanity-check proportions before saving.', 'thumbnail-remover' ); ?></p>
+				<form method="post" id="trpl-custom-sizes-form">
+					<?php wp_nonce_field( 'thumbnail-manager-nonce', 'thumbnail_manager_nonce' ); ?>
+					<table class="widefat striped trpl-custom-sizes-table">
+						<thead>
+							<tr>
+								<th><?php esc_html_e( 'Size key', 'thumbnail-remover' ); ?></th>
+								<th><?php esc_html_e( 'Label', 'thumbnail-remover' ); ?></th>
+								<th><?php esc_html_e( 'Width', 'thumbnail-remover' ); ?></th>
+								<th><?php esc_html_e( 'Height', 'thumbnail-remover' ); ?></th>
+								<th><?php esc_html_e( 'Crop', 'thumbnail-remover' ); ?></th>
+								<th><?php esc_html_e( 'Remove', 'thumbnail-remover' ); ?></th>
+							</tr>
+						</thead>
+						<tbody id="trpl-custom-sizes-body">
+							<?php $row_index = 0; ?>
+							<?php foreach ( $current_custom_sizes as $size_name => $size ) : ?>
+								<tr>
+									<td><input type="text" name="custom_sizes[<?php echo esc_attr( $row_index ); ?>][name]" value="<?php echo esc_attr( $size_name ); ?>" class="regular-text"></td>
+									<td><input type="text" name="custom_sizes[<?php echo esc_attr( $row_index ); ?>][label]" value="<?php echo esc_attr( isset( $size['label'] ) ? $size['label'] : $size_name ); ?>" class="regular-text"></td>
+									<td><input type="number" min="0" name="custom_sizes[<?php echo esc_attr( $row_index ); ?>][width]" value="<?php echo esc_attr( isset( $size['width'] ) ? (int) $size['width'] : 0 ); ?>" class="small-text"></td>
+									<td><input type="number" min="0" name="custom_sizes[<?php echo esc_attr( $row_index ); ?>][height]" value="<?php echo esc_attr( isset( $size['height'] ) ? (int) $size['height'] : 0 ); ?>" class="small-text"></td>
+									<td><label><input type="checkbox" name="custom_sizes[<?php echo esc_attr( $row_index ); ?>][crop]" value="1" <?php checked( ! empty( $size['crop'] ) ); ?>> <?php esc_html_e( 'Hard crop', 'thumbnail-remover' ); ?></label></td>
+									<td><button type="button" class="button-link-delete trpl-remove-custom-size-row"><?php esc_html_e( 'Remove', 'thumbnail-remover' ); ?></button></td>
+								</tr>
+								<?php $row_index++; ?>
+							<?php endforeach; ?>
+							<tr>
+								<td><input type="text" name="custom_sizes[<?php echo esc_attr( $row_index ); ?>][name]" value="" class="regular-text" placeholder="<?php esc_attr_e( 'hero_banner', 'thumbnail-remover' ); ?>"></td>
+								<td><input type="text" name="custom_sizes[<?php echo esc_attr( $row_index ); ?>][label]" value="" class="regular-text" placeholder="<?php esc_attr_e( 'Hero Banner', 'thumbnail-remover' ); ?>"></td>
+								<td><input type="number" min="0" name="custom_sizes[<?php echo esc_attr( $row_index ); ?>][width]" value="" class="small-text"></td>
+								<td><input type="number" min="0" name="custom_sizes[<?php echo esc_attr( $row_index ); ?>][height]" value="" class="small-text"></td>
+								<td><label><input type="checkbox" name="custom_sizes[<?php echo esc_attr( $row_index ); ?>][crop]" value="1"> <?php esc_html_e( 'Hard crop', 'thumbnail-remover' ); ?></label></td>
+								<td><button type="button" class="button-link-delete trpl-remove-custom-size-row"><?php esc_html_e( 'Remove', 'thumbnail-remover' ); ?></button></td>
+							</tr>
+						</tbody>
+					</table>
+					<p>
+						<button type="button" class="button" id="trpl-add-custom-size-row"><?php esc_html_e( 'Add Another Size', 'thumbnail-remover' ); ?></button>
+						<input type="submit" name="save_custom_sizes" class="button button-primary" value="<?php esc_attr_e( 'Save Custom Sizes', 'thumbnail-remover' ); ?>">
+					</p>
+				</form>
+
+				<h3><?php esc_html_e( 'Visual Preview', 'thumbnail-remover' ); ?></h3>
+				<?php trpl_render_custom_size_preview_cards( $current_custom_sizes ); ?>
 			</div>
 
 				<div class="wrt-box">
