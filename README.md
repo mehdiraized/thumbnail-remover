@@ -87,7 +87,7 @@ The plugin detects on-disk thumbnail files that are no longer tracked in WordPre
 
 ### Regenerate Missing Sizes
 
-If you keep or re-enable image sizes, you can regenerate missing derivatives in batch mode without regenerating everything manually.
+If you keep or re-enable image sizes, you can regenerate missing derivatives in batch mode or force a full rebuild for selected sizes. Media Library bulk actions also let you regenerate selected images directly from the list screen.
 
 ### Per-Size Analytics
 
@@ -219,6 +219,7 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 - Added a custom size manager for registering, editing, and removing custom image sizes with visual previews
 - Added TinyPNG-compatible bulk optimization for originals and generated thumbnails
 - Added size-usage analysis so the analytics table reports which thumbnail sizes appear in content and meta references
+- Expanded thumbnail regeneration with missing-only vs full rebuild modes and Media Library bulk actions
 - Added batch WebP generation for JPEG and PNG originals plus registered thumbnail sizes
 - Added WebP generation controls for include-original and overwrite-existing behavior
 - Logged WebP generation runs in the Reporting and Logs section

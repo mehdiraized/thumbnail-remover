@@ -84,7 +84,7 @@ The plugin scans image attachments and checks for usage in featured images, pare
 Yes. The size-disable settings prevent selected image sizes from being generated for future uploads only. Existing thumbnails are not removed unless you explicitly preview and move them to Trash.
 
 = Can I regenerate missing sizes after enabling a size again? =
-Yes. Use the `Regenerate Missing Sizes` section to rebuild missing image sizes in batches.
+Yes. Use the `Regenerate Missing Sizes` section to rebuild missing image sizes in batches, switch to a full rebuild mode when needed, or use Media Library bulk actions for selected images.
 
 = Can I limit cleanup to only orphan thumbnails or probably unused media? =
 Yes. The advanced filters can narrow analysis, cleanup, and regeneration jobs by image format, attachment usage status, and whether the thumbnail files are metadata-tracked or orphaned.
@@ -134,6 +134,7 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 * Added a custom size manager for registering, editing, and removing custom image sizes with visual previews
 * Added TinyPNG-compatible bulk optimization for originals and generated thumbnails
 * Added size-usage analysis so the analytics table reports which thumbnail sizes appear in content and meta references
+* Expanded thumbnail regeneration with missing-only vs full rebuild modes and Media Library bulk actions
 * Added batch WebP generation for JPEG and PNG originals plus registered thumbnail sizes
 * Added WebP generation controls for include-original and overwrite-existing behavior
 * Logged WebP generation runs in the Reporting and Logs section

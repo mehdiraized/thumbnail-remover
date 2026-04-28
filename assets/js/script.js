@@ -438,6 +438,7 @@ jQuery(function ($) {
 
 		const sizes = collectValues('#trpl-regenerate-form input[name="regen_sizes[]"]:checked');
 		const folders = collectValues('#trpl-regenerate-form input[name="regen_folders[]"]:checked');
+		const regenerateMode = $('#trpl-regenerate-form [name="regenerate_mode"]').val() || "missing";
 		const $progress = $("#trpl-regenerate-progress");
 		const $results = $("#trpl-regenerate-results");
 		setProgress($progress, 0);
@@ -446,18 +447,18 @@ jQuery(function ($) {
 		runJob({
 			startAction: "trpl_start_regenerate",
 			processAction: "trpl_process_regenerate",
-			startData: $.extend({ sizes: sizes, folders: folders }, collectFilters("#trpl-regenerate-form")),
+			startData: $.extend({ sizes: sizes, folders: folders, regenerate_mode: regenerateMode }, collectFilters("#trpl-regenerate-form")),
 			onProgress: function (data) {
 				setProgress($progress, data.progress);
 			},
 			onComplete: function (data) {
 				hideProgress($progress);
 				const message =
-					"Processed " +
+					(regenerateMode === "all" ? "Fully regenerated " : "Processed ") +
 					(data.result.attachments || 0) +
-					" attachment(s) and generated " +
+					(regenerateMode === "all" ? " attachment(s) and rebuilt " : " attachment(s) and generated ") +
 					(data.result.generated || 0) +
-					" missing size(s).";
+					(regenerateMode === "all" ? " size(s)." : " missing size(s).");
 				renderNotice($results, message, "success");
 			},
 			onError: function (error) {
