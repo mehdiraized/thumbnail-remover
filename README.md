@@ -38,6 +38,7 @@ Instead of removing thumbnails with a single irreversible step, the current rele
 - Media Library thumbnail summary column with per-image quick actions
 - Custom image size manager with visual previews
 - Bulk image optimization with TinyPNG-compatible API support
+- Size usage analysis based on content and stored meta references
 - Existing image-size disable controls
 - Zip backups for uploads and cleanup batches
 - Scheduled cleanup with configurable frequency and scope
@@ -93,6 +94,7 @@ If you keep or re-enable image sizes, you can regenerate missing derivatives in 
 See per-size analytics including:
 
 - File count
+- Reference counts found in site content
 - Total storage used
 - Missing size count
 - Orphan count
@@ -216,6 +218,7 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 - Added Media Library quick actions to move one image's thumbnails to Trash or regenerate missing sizes
 - Added a custom size manager for registering, editing, and removing custom image sizes with visual previews
 - Added TinyPNG-compatible bulk optimization for originals and generated thumbnails
+- Added size-usage analysis so the analytics table reports which thumbnail sizes appear in content and meta references
 - Added batch WebP generation for JPEG and PNG originals plus registered thumbnail sizes
 - Added WebP generation controls for include-original and overwrite-existing behavior
 - Logged WebP generation runs in the Reporting and Logs section
