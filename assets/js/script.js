@@ -508,6 +508,56 @@ jQuery(function ($) {
 		});
 	});
 
+	$("#trpl-optimize-form").on("submit", function (event) {
+		event.preventDefault();
+		if (!window.confirm(thumbnailManager.i18n.confirmOptimize)) {
+			return;
+		}
+
+		const folders = collectValues('#trpl-optimize-form input[name="optimize_folders[]"]:checked');
+		const settings = thumbnailManager.optimizationSettings || {};
+		const $progress = $("#trpl-optimize-progress");
+		const $results = $("#trpl-optimize-results");
+		setProgress($progress, 0);
+		$results.empty();
+
+		runJob({
+			startAction: "trpl_start_optimization",
+			processAction: "trpl_process_optimization",
+			startData: $.extend(
+				{
+					folders: folders,
+					provider: settings.provider || "tinypng",
+					api_key: settings.api_key || "",
+					include_originals: settings.include_originals ? 1 : 0,
+					include_thumbnails: settings.include_thumbnails ? 1 : 0,
+				},
+				collectFilters("#trpl-optimize-form")
+			),
+			onProgress: function (data) {
+				setProgress($progress, data.progress);
+			},
+			onComplete: function (data) {
+				hideProgress($progress);
+				const message =
+					"Processed " +
+					(data.result.attachments || 0) +
+					" attachment(s), optimized " +
+					(data.result.optimized || 0) +
+					" file(s), failed " +
+					(data.result.failed || 0) +
+					", saved " +
+					formatBytes(data.result.saved_bytes || 0) +
+					".";
+				renderNotice($results, message, "success");
+			},
+			onError: function (error) {
+				hideProgress($progress);
+				renderNotice($results, error.message || thumbnailManager.i18n.error, "error");
+			},
+		});
+	});
+
 	const $backupYear = $("#backup_year");
 	const $backupMonth = $("#backup_month");
 

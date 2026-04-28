@@ -48,6 +48,7 @@ This release is built for site owners, developers, agencies, and anyone trying t
 * WebP variant generation for JPEG and PNG uploads
 * Media Library thumbnail summary column with per-image quick actions
 * Custom image size manager with visual previews
+* Bulk image optimization with TinyPNG-compatible API support
 * Image size disable controls for future uploads
 * Media backup export to zip
 * Scheduled cleanup powered by WP-Cron
@@ -90,6 +91,9 @@ Yes. The advanced filters can narrow analysis, cleanup, and regeneration jobs by
 = Can the plugin generate WebP copies for existing media? =
 Yes. The WebP generation tool can create `.webp` copies for JPEG and PNG originals plus their registered thumbnail sizes when your WordPress image editor supports WebP output.
 
+= Can the plugin bulk-optimize images without deleting them? =
+Yes. You can connect a TinyPNG API key and run bulk optimization against original uploads, generated thumbnails, or both while keeping the files in place.
+
 = Is the plugin suitable for larger media libraries? =
 Yes. Analysis, cleanup, and regeneration are processed in batches with visible progress to reduce timeout problems on larger WordPress sites.
 
@@ -127,6 +131,7 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 * Added a Media Library column showing thumbnail totals, storage, orphan counts, and missing-size hints per image
 * Added Media Library quick actions to move one image's thumbnails to Trash or regenerate missing sizes
 * Added a custom size manager for registering, editing, and removing custom image sizes with visual previews
+* Added TinyPNG-compatible bulk optimization for originals and generated thumbnails
 * Added batch WebP generation for JPEG and PNG originals plus registered thumbnail sizes
 * Added WebP generation controls for include-original and overwrite-existing behavior
 * Logged WebP generation runs in the Reporting and Logs section

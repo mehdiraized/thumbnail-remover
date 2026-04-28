@@ -37,6 +37,7 @@ Instead of removing thumbnails with a single irreversible step, the current rele
 - WebP variant generation for JPEG and PNG uploads
 - Media Library thumbnail summary column with per-image quick actions
 - Custom image size manager with visual previews
+- Bulk image optimization with TinyPNG-compatible API support
 - Existing image-size disable controls
 - Zip backups for uploads and cleanup batches
 - Scheduled cleanup with configurable frequency and scope
@@ -112,6 +113,10 @@ Review recent media operations from the admin screen, including analysis runs, p
 ### WebP Support
 
 Generate sibling `.webp` files for selected original uploads and registered thumbnail sizes in batch mode. Existing files can be skipped or overwritten, and each run is recorded in the activity log.
+
+### Bulk Image Optimization
+
+Connect a TinyPNG API key and optimize original uploads, generated thumbnails, or both in batch mode. The optimization workflow reuses the plugin's folder scoping and advanced filters so you can target only the parts of the library you actually want to shrink.
 
 ## Installation
 
@@ -210,6 +215,7 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 - Added a Media Library column showing thumbnail totals, storage, orphan counts, and missing-size hints per image
 - Added Media Library quick actions to move one image's thumbnails to Trash or regenerate missing sizes
 - Added a custom size manager for registering, editing, and removing custom image sizes with visual previews
+- Added TinyPNG-compatible bulk optimization for originals and generated thumbnails
 - Added batch WebP generation for JPEG and PNG originals plus registered thumbnail sizes
 - Added WebP generation controls for include-original and overwrite-existing behavior
 - Logged WebP generation runs in the Reporting and Logs section
