@@ -407,6 +407,49 @@ jQuery(function ($) {
 		});
 	});
 
+	$("#trpl-webp-form").on("submit", function (event) {
+		event.preventDefault();
+		if (!window.confirm(thumbnailManager.i18n.confirmGenerateWebp)) {
+			return;
+		}
+
+		const sizes = collectValues('#trpl-webp-form input[name="webp_sizes[]"]:checked');
+		const folders = collectValues('#trpl-webp-form input[name="webp_folders[]"]:checked');
+		const includeOriginal = $('#trpl-webp-form input[name="include_original"]').is(":checked") ? 1 : 0;
+		const overwriteExisting = $('#trpl-webp-form input[name="overwrite_existing"]').is(":checked") ? 1 : 0;
+		const $progress = $("#trpl-webp-progress");
+		const $results = $("#trpl-webp-results");
+		setProgress($progress, 0);
+		$results.empty();
+
+		runJob({
+			startAction: "trpl_start_webp_generation",
+			processAction: "trpl_process_webp_generation",
+			startData: $.extend({ sizes: sizes, folders: folders, include_original: includeOriginal, overwrite_existing: overwriteExisting }, collectFilters("#trpl-webp-form")),
+			onProgress: function (data) {
+				setProgress($progress, data.progress);
+			},
+			onComplete: function (data) {
+				hideProgress($progress);
+				const message =
+					"Processed " +
+					(data.result.attachments || 0) +
+					" attachment(s), generated " +
+					(data.result.generated || 0) +
+					" WebP file(s), skipped " +
+					(data.result.skipped || 0) +
+					", failed " +
+					(data.result.failed || 0) +
+					".";
+				renderNotice($results, message, "success");
+			},
+			onError: function (error) {
+				hideProgress($progress);
+				renderNotice($results, error.message || thumbnailManager.i18n.error, "error");
+			},
+		});
+	});
+
 	const $backupYear = $("#backup_year");
 	const $backupMonth = $("#backup_month");
 

@@ -34,6 +34,7 @@ Instead of removing thumbnails with a single irreversible step, the current rele
 - Per-size analytics
 - Reporting and recent activity logs
 - Advanced filters for format, usage status, and orphan-only cleanup
+- WebP variant generation for JPEG and PNG uploads
 - Existing image-size disable controls
 - Zip backups for uploads and cleanup batches
 - Scheduled cleanup with configurable frequency and scope
@@ -106,6 +107,10 @@ Narrow analysis, cleanup, and regeneration jobs with extra filters for:
 
 Review recent media operations from the admin screen, including analysis runs, previews, cleanup batches, restores, regenerations, backups, and WP-Cron cleanup activity. The reporting view also summarizes recovered storage, regenerated sizes, restore totals, and backup runs.
 
+### WebP Support
+
+Generate sibling `.webp` files for selected original uploads and registered thumbnail sizes in batch mode. Existing files can be skipped or overwritten, and each run is recorded in the activity log.
+
 ## Installation
 
 1. Upload the plugin files to `/wp-content/plugins/thumbnail-remover`, or install it through the WordPress plugins screen.
@@ -149,6 +154,10 @@ Yes. You can disable selected registered image sizes for future uploads. This on
 ### Can I regenerate missing sizes after re-enabling a size?
 
 Yes. The regeneration tool can rebuild missing image sizes in batches, which is useful after re-enabling sizes or cleaning up incomplete media libraries.
+
+### Can the plugin generate WebP copies for my existing media?
+
+Yes. The WebP generation tool can create `.webp` copies for JPEG and PNG originals plus their registered thumbnail sizes when your WordPress image editor supports WebP output.
 
 ### Can I filter cleanup jobs to only orphan thumbnails or probably unused media?
 
@@ -196,6 +205,9 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 
 ### Unreleased
 
+- Added batch WebP generation for JPEG and PNG originals plus registered thumbnail sizes
+- Added WebP generation controls for include-original and overwrite-existing behavior
+- Logged WebP generation runs in the Reporting and Logs section
 - Added optional zip backups for matching thumbnails before they are moved to plugin Trash
 - Stored cleanup backup links with Trash batches so previous cleanup backups remain downloadable
 - Added advanced filters for image format, attachment usage, and orphan-only versus tracked thumbnail cleanup
