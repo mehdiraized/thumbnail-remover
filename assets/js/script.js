@@ -370,6 +370,37 @@ jQuery(function ($) {
 			});
 	});
 
+	$(document).on("click", ".trpl-media-action", function () {
+		const $button = $(this);
+		const attachmentId = $button.data("attachment-id");
+		const actionType = $button.data("action");
+		const isTrashAction = actionType === "trash";
+		const confirmed = window.confirm(isTrashAction ? thumbnailManager.i18n.confirmMediaTrash : thumbnailManager.i18n.confirmMediaRegenerate);
+
+		if (!confirmed) {
+			return;
+		}
+
+		$button.closest(".trpl-media-actions").find("button").prop("disabled", true);
+		ajaxPost(isTrashAction ? "trpl_media_library_trash_attachment" : "trpl_media_library_regenerate_attachment", {
+			attachment_id: attachmentId,
+		})
+			.done(function (response) {
+				if (!response.success) {
+					window.alert(response.data && response.data.message ? response.data.message : thumbnailManager.i18n.error);
+					$button.closest(".trpl-media-actions").find("button").prop("disabled", false);
+					return;
+				}
+
+				window.alert(response.data && response.data.message ? response.data.message : "Done.");
+				window.location.reload();
+			})
+			.fail(function () {
+				window.alert(thumbnailManager.i18n.error);
+				$button.closest(".trpl-media-actions").find("button").prop("disabled", false);
+			});
+	});
+
 	$("#trpl-regenerate-form").on("submit", function (event) {
 		event.preventDefault();
 		if (!window.confirm(thumbnailManager.i18n.confirmRegenerate)) {
