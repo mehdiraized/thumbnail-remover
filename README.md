@@ -3,8 +3,8 @@
 **Contributors:** mehdiraized  
 **Tags:** thumbnails, media management, image optimization, cleanup, regenerate thumbnails  
 **Requires at least:** 5.0  
-**Tested up to:** 6.9  
-**Stable tag:** 2.2.4  
+**Tested up to:** 7.0  
+**Stable tag:** 2.3.0  
 **Requires PHP:** 7.4  
 **License:** GPLv2 or later  
 **License URI:** https://www.gnu.org/licenses/gpl-2.0.html
@@ -212,8 +212,9 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 
 ## Changelog
 
-### Unreleased
+### 2.3.0
 
+- Confirmed compatibility metadata for WordPress 7.0 while keeping the PHP requirement at 7.4 or newer
 - Added a Media Library column showing thumbnail totals, storage, orphan counts, and missing-size hints per image
 - Added Media Library quick actions to move one image's thumbnails to Trash or regenerate missing sizes
 - Added a custom size manager for registering, editing, and removing custom image sizes with visual previews
