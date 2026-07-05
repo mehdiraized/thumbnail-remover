@@ -4,6 +4,7 @@
 .husky/
 .wp-env.json
 .distignore
+AGENTS.md
 .release-build/
 node_modules/
 output/
