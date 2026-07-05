@@ -1,23 +1,24 @@
-=== Thumbnail Remover and Size Manager ===
+=== Thumbnail Manager ===
 Contributors: mehdiraized
 Donate link: https://www.buymeacoffee.com/mehdiraized
 Tags: thumbnails, media management, image optimization, cleanup, regenerate thumbnails
 Requires at least: 5.0
 Tested up to: 7.0
-Stable tag: 2.3.0
+Stable tag: 2.3.2
 Requires PHP: 7.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Safely analyze, preview, trash, restore, schedule, regenerate, report on, and manage WordPress thumbnails and image sizes.
+Safely analyze, preview, trash, restore, schedule, regenerate, and manage WordPress thumbnails from a clean tabbed admin screen.
 
 == Description ==
 
-Thumbnail Remover and Size Manager 2.2 is a safer and more complete media-maintenance workflow for WordPress.
+Thumbnail Manager is a safer and more complete media-maintenance workflow for WordPress.
 
 Instead of deleting thumbnails blindly, the plugin now helps you:
 
 * Preview cleanup results before removing files
+* Work from focused WordPress-style tabs for Analysis, Sizes, Cleanup, Optimize, Backup, Reports, and Pro previews
 * Move thumbnails to plugin Trash instead of deleting permanently
 * Create a zip backup of the exact matching thumbnails before moving them to Trash
 * Restore trashed thumbnails later if needed
@@ -36,6 +37,7 @@ This release is built for site owners, developers, agencies, and anyone trying t
 == Features ==
 
 * Dry run / preview before cleanup
+* WordPress-style tabbed admin screen with persistent support and ad sidebar
 * Trash and Restore workflow for safer deletion
 * Optional zip backup before moving matching thumbnails to Trash
 * Batch processing with real progress for scan, cleanup, and regeneration
@@ -58,18 +60,34 @@ This release is built for site owners, developers, agencies, and anyone trying t
 
 Create, update, and remove custom image sizes directly from the plugin screen. The manager includes a simple visual preview so you can sanity-check new dimensions before you save them for future uploads.
 
+== Tabbed Admin Screen ==
+
+The Thumbnail Manager screen is organized into focused tabs for Analysis, Sizes, Cleanup, Optimize, Backup, Reports, and Pro previews. The support and ad sidebar remains visible while moving between tabs.
+
+== External Services ==
+
+The free version of Thumbnail Manager displays a Google AdSense support ad in its WordPress admin screen sidebar.
+
+The admin screen loads Google's AdSense script from `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js` with the publisher client `ca-pub-9076174896803444` and ad slot `9828772606`. Google may process ad requests, impressions, browser data, cookies, and related signals according to its own policies.
+
+Google AdSense is provided by Google LLC.
+
+Terms: https://policies.google.com/terms
+Privacy Policy: https://policies.google.com/privacy
+AdSense policies: https://support.google.com/adsense/answer/48182
+
 == Installation ==
 
 1. Upload the plugin files to the `/wp-content/plugins/thumbnail-remover` directory, or install the plugin through the WordPress plugins screen directly.
 2. Activate the plugin through the `Plugins` screen in WordPress.
 3. Go to `Tools > Thumbnail Manager`.
-4. Run a full analysis before your first cleanup so you can review thumbnail usage, orphan counts, and unused media signals.
-5. Configure scheduled cleanup if you want recurring maintenance.
+4. Use the Analysis tab before your first cleanup so you can review thumbnail usage, orphan counts, and unused media signals.
+5. Configure scheduled cleanup from the Cleanup tab if you want recurring maintenance.
 
 == Frequently Asked Questions ==
 
 = Does the plugin permanently delete thumbnails? =
-Not during cleanup. Version 2 moves matching thumbnail files into plugin Trash first so they can be restored later. To free disk space permanently, use `Delete Permanently` for one trash batch or `Empty Trash` for all batches in the Trash and Restore table.
+Not during cleanup. Thumbnail Manager moves matching thumbnail files into plugin Trash first so they can be restored later. To free disk space permanently, use `Delete Permanently` for one trash batch or `Empty Trash` for all batches in the Trash and Restore table.
 
 = What does Preview do? =
 Preview performs a dry run and shows how many files match your current selection, which sizes are involved, how much space can be recovered, and how many orphan thumbnails were found.
@@ -121,12 +139,26 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 
 == Screenshots ==
 
-1. Library analysis with per-size analytics and unused media results
-2. Dry run preview before moving thumbnails to Trash
-3. Trash and Restore workflow
-4. Batch regeneration of missing image sizes
+1. Analysis tab with per-size analytics and unused media results
+2. Sizes tab with thumbnail size controls, custom sizes, and visual preview
+3. Cleanup tab with scheduled cleanup, dry run preview, and Trash restore workflow
+4. Optimize tab batch regeneration of missing image sizes
+5. Backup tab for creating upload archive backups
+6. Reports tab with activity summary and logs
+7. Pro tab with advanced kit preview and plan comparison
 
 == Changelog ==
+
+= 2.3.2 =
+* Fixed Plugin Check annotations for WordPress 5.0 compatibility, nonce handling, translator comments, and prepared SQL checks
+* Added a cache-safe version to the AdSense admin script enqueue
+* Updated the GitHub Pages workflow to publish all seven tab screenshots
+
+= 2.3.1 =
+* Refreshed the admin screen with WordPress-style tabs across Analysis, Sizes, Cleanup, Optimize, Backup, Reports, and Pro
+* Updated all plugin screenshots so each admin tab has its own WordPress.org screenshot
+* Added the free-version Google AdSense support ad placement in the admin sidebar
+* Updated plugin docs, readme copy, and release tooling for the new tabbed screenshot set
 
 = 2.3.0 =
 * Confirmed compatibility metadata for WordPress 7.0 while keeping the PHP requirement at 7.4 or newer.
@@ -142,6 +174,7 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 * Added permanent delete actions for individual Trash batches and for emptying all plugin Trash.
 * Added optional zip backups for matching thumbnails before they are moved to plugin Trash
 * Stored cleanup backup links with Trash batches so previous cleanup backups remain downloadable from the Trash and Restore table
+* Organized the admin screen into WordPress-style tabs while keeping the support and ad sidebar visible
 * Added advanced filters for image format, attachment usage, and orphan-only versus tracked cleanup
 * Reused the new filters across analysis, preview cleanup, and regeneration workflows
 * Updated the admin UI and documentation to explain the extra filtering controls
@@ -165,7 +198,7 @@ No. The plugin marks items as probably unused based on several WordPress relatio
 * Added probably unused media detection
 * Added missing-size regeneration workflow
 * Added per-size analytics dashboard
-* Refreshed admin UI for the new v2 workflow
+* Refreshed admin UI for the safer cleanup workflow
 * Updated plugin description and documentation
 
 = 1.1.5 =

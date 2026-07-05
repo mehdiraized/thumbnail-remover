@@ -1,31 +1,32 @@
-# Thumbnail Remover and Size Manager
+# Thumbnail Manager
 
-**Contributors:** mehdiraized  
-**Tags:** thumbnails, media management, image optimization, cleanup, regenerate thumbnails  
-**Requires at least:** 5.0  
-**Tested up to:** 7.0  
-**Stable tag:** 2.3.0  
-**Requires PHP:** 7.4  
-**License:** GPLv2 or later  
+**Contributors:** mehdiraized
+**Tags:** thumbnails, media management, image optimization, cleanup, regenerate thumbnails
+**Requires at least:** 5.0
+**Tested up to:** 7.0
+**Stable tag:** 2.3.2
+**Requires PHP:** 7.4
+**License:** GPLv2 or later
 **License URI:** https://www.gnu.org/licenses/gpl-2.0.html
 
-Safely analyze, preview, trash, restore, schedule, regenerate, report on, and manage WordPress thumbnails and image sizes.
+Safely analyze, preview, trash, restore, schedule, regenerate, and manage WordPress thumbnails from a clean tabbed admin screen.
 
 Landing page: [https://mehdiraized.github.io/thumbnail-remover/](https://mehdiraized.github.io/thumbnail-remover/)
 
 WordPress.org: [https://wordpress.org/plugins/thumbnail-remover/](https://wordpress.org/plugins/thumbnail-remover/)
 
-![Thumbnail Remover Banner](assets/banner-1544x500.png)
+![Thumbnail Manager Banner](assets/banner-1544x500.png)
 
-![Thumbnail Manager Library Analysis](assets/screenshots/screenshot-1.png)
+![Thumbnail Manager Analysis tab](assets/screenshots/screenshot-1.png)
 
 ## Overview
 
-Thumbnail Remover and Size Manager 2.2 continues the plugin's safer media maintenance workflow for WordPress sites.
+Thumbnail Manager continues the plugin's safer media maintenance workflow for WordPress sites.
 
 Instead of removing thumbnails with a single irreversible step, the current release adds:
 
 - Dry-run preview before cleanup
+- WordPress-style tabbed admin screen with persistent support and ad sidebar
 - Trash and Restore workflow
 - Batch processing with progress
 - Unused media detection
@@ -65,6 +66,10 @@ Cleanup can also create a zip backup of the exact matching thumbnails before the
 ### Batch Processing
 
 Large scans, cleanup jobs, and regeneration jobs run in batches and report progress in the interface to reduce timeout problems on larger sites.
+
+### Tabbed Admin Screen
+
+The Thumbnail Manager screen is organized into focused tabs for Analysis, Sizes, Cleanup, Optimize, Backup, Reports, and Pro previews. The support and ad sidebar remains visible while moving between tabs.
 
 ### Scheduled Cleanup
 
@@ -120,29 +125,38 @@ Generate sibling `.webp` files for selected original uploads and registered thum
 
 Connect a TinyPNG API key and optimize original uploads, generated thumbnails, or both in batch mode. The optimization workflow reuses the plugin's folder scoping and advanced filters so you can target only the parts of the library you actually want to shrink.
 
+## External Services
+
+The free version of Thumbnail Manager displays a Google AdSense support ad in its WordPress admin screen sidebar.
+
+The admin screen loads Google's AdSense script from `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js` with the publisher client `ca-pub-9076174896803444` and ad slot `9828772606`. Google may process ad requests, impressions, browser data, cookies, and related signals according to its own policies.
+
+Google AdSense is provided by Google LLC. Terms: [https://policies.google.com/terms](https://policies.google.com/terms). Privacy Policy: [https://policies.google.com/privacy](https://policies.google.com/privacy). AdSense policies: [https://support.google.com/adsense/answer/48182](https://support.google.com/adsense/answer/48182).
+
 ## Installation
 
 1. Upload the plugin files to `/wp-content/plugins/thumbnail-remover`, or install it through the WordPress plugins screen.
 2. Activate the plugin.
 3. Open `Tools > Thumbnail Manager`.
-4. Run a full analysis before your first cleanup.
-5. Configure scheduled cleanup if you want recurring maintenance.
+4. Use the Analysis tab before your first cleanup.
+5. Configure scheduled cleanup from the Cleanup tab if you want recurring maintenance.
 
 ## Recommended Workflow
 
-1. Run **Full Analysis**
+1. Open the **Analysis** tab and run **Full Analysis**
 2. Review per-size analytics, orphan counts, and probably unused media
-3. Keep the cleanup backup option enabled, or create a broader uploads backup if needed
-4. Use **Preview Cleanup**
-5. Move matching thumbnails to **Trash**
-6. Restore a batch if you need to reverse the cleanup
-7. Regenerate missing sizes after re-enabling any image sizes
+3. Open the **Cleanup** tab
+4. Keep the cleanup backup option enabled, or create a broader uploads backup if needed
+5. Use **Preview Cleanup**
+6. Move matching thumbnails to **Trash**
+7. Restore a batch if you need to reverse the cleanup
+8. Use the **Optimize** tab to regenerate missing sizes after re-enabling any image sizes
 
 ## FAQ
 
 ### Does the plugin permanently delete thumbnails?
 
-Not during cleanup. Version 2 moves matching thumbnail files into plugin Trash first, so you can restore a cleanup batch later if needed. To free disk space permanently, use `Delete Permanently` for one batch or `Empty Trash` for all batches in the Trash and Restore table.
+Not during cleanup. Thumbnail Manager moves matching thumbnail files into plugin Trash first, so you can restore a cleanup batch later if needed. To free disk space permanently, use `Delete Permanently` for one batch or `Empty Trash` for all batches in the Trash and Restore table.
 
 ### What does Preview Cleanup show before I remove anything?
 
@@ -194,23 +208,48 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 
 ## Screenshots
 
-### Library Analysis
+### Analysis Tab
 
-![Library Analysis](assets/screenshots/screenshot-1.png)
+![Analysis tab with Library Analysis results](assets/screenshots/screenshot-1.png)
 
-### Preview and Move Thumbnails to Trash
+### Sizes Tab
 
-![Preview and Move Thumbnails to Trash](assets/screenshots/screenshot-2.png)
+![Sizes tab with thumbnail size controls, custom sizes, and visual preview](assets/screenshots/screenshot-2.png)
 
-### Trash and Restore
+### Cleanup Tab
 
-![Trash and Restore](assets/screenshots/screenshot-3.png)
+![Cleanup tab with scheduled cleanup, preview, and Trash restore workflow](assets/screenshots/screenshot-3.png)
 
-### Regenerate Missing Sizes
+### Optimize Tab
 
-![Regenerate Missing Sizes](assets/screenshots/screenshot-4.png)
+![Optimize tab with regeneration workflow](assets/screenshots/screenshot-4.png)
+
+### Backup Tab
+
+![Backup tab with upload archive controls](assets/screenshots/screenshot-5.png)
+
+### Reports Tab
+
+![Reports tab with activity summary and logs](assets/screenshots/screenshot-6.png)
+
+### Pro Tab
+
+![Pro tab with advanced kit preview and plan comparison](assets/screenshots/screenshot-7.png)
 
 ## Changelog
+
+### 2.3.2
+
+- Fixed Plugin Check annotations for WordPress 5.0 compatibility, nonce handling, translator comments, and prepared SQL checks
+- Added a cache-safe version to the AdSense admin script enqueue
+- Updated the GitHub Pages workflow to publish all seven tab screenshots
+
+### 2.3.1
+
+- Refreshed the admin screen with WordPress-style tabs across Analysis, Sizes, Cleanup, Optimize, Backup, Reports, and Pro
+- Updated all plugin screenshots so each admin tab has its own WordPress.org screenshot
+- Added the free-version Google AdSense support ad placement in the admin sidebar
+- Updated plugin docs, readme copy, and release tooling for the new tabbed screenshot set
 
 ### 2.3.0
 
@@ -226,6 +265,7 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 - Logged WebP generation runs in the Reporting and Logs section
 - Added optional zip backups for matching thumbnails before they are moved to plugin Trash
 - Stored cleanup backup links with Trash batches so previous cleanup backups remain downloadable
+- Organized the admin screen into WordPress-style tabs while keeping the support and ad sidebar visible
 - Added advanced filters for image format, attachment usage, and orphan-only versus tracked thumbnail cleanup
 - Reused the same filters across analysis, preview cleanup, and regeneration workflows
 - Updated the admin UI and docs to explain the new filtering options
@@ -263,7 +303,7 @@ No. Scheduled cleanup also moves matching files into plugin Trash first. The mai
 ## Release Workflow
 
 - Run `npm install` once so Husky installs the local git hooks.
-- The first push to `main` now prepares a local release commit such as `chore(release): v2.2.1` and stops the push so you can review it.
+- The first push to `main` now prepares a local release commit such as `chore(release): vX.Y.Z` and stops the push so you can review it.
 - Re-run `git push origin main` after that release commit is created. The second push syncs the exact same version to the local WordPress.org SVN checkout before GitHub push completes.
 - GitHub Actions now only validates the plugin, creates the Git tag and GitHub release for the version already prepared locally, generates release notes from commit messages, and deploys the docs site.
 - To skip the local WordPress.org deploy for one push, use `TRPL_SKIP_WPORG_DEPLOY=1 git push origin main`.

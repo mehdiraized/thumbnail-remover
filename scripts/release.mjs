@@ -32,6 +32,18 @@ const managedAssetCopies = [
 		source: path.join(rootDir, 'assets', 'screenshots', 'screenshot-4.png'),
 		target: path.join(svnDir, 'assets', 'screenshot-4.png'),
 	},
+	{
+		source: path.join(rootDir, 'assets', 'screenshots', 'screenshot-5.png'),
+		target: path.join(svnDir, 'assets', 'screenshot-5.png'),
+	},
+	{
+		source: path.join(rootDir, 'assets', 'screenshots', 'screenshot-6.png'),
+		target: path.join(svnDir, 'assets', 'screenshot-6.png'),
+	},
+	{
+		source: path.join(rootDir, 'assets', 'screenshots', 'screenshot-7.png'),
+		target: path.join(svnDir, 'assets', 'screenshot-7.png'),
+	},
 ];
 
 const [, , command = 'verify', ...args] = process.argv;
@@ -107,7 +119,7 @@ function readVersionMetadata() {
 		: '';
 
 	const pluginVersion = extractMatch(pluginContents, /^Version:\s*(.+)$/m, 'plugin header version');
-	const constantVersion = extractMatch(pluginContents, /define\(\s*'TRPL_VERSION'\s*,\s*'([^']+)'\s*\);/, 'TRPL_VERSION');
+	const constantVersion = extractMatch(pluginContents, /define\(\s*['"]TRPL_VERSION['"]\s*,\s*['"]([^'"]+)['"]\s*\);/, 'TRPL_VERSION');
 	const stableTag = extractMatch(readmeContents, /^Stable tag:\s*(.+)$/m, 'readme stable tag');
 	const markdownStableTag = markdownReadmeContents
 		? extractMatch(markdownReadmeContents, /^\*\*Stable tag:\*\*\s*(.+?)\s*$/m, 'README stable tag')
@@ -177,7 +189,7 @@ function updateProjectVersion(nextVersion) {
 		fs
 			.readFileSync(pluginFile, 'utf8')
 			.replace(/^Version:\s*.+$/m, `Version: ${nextVersion}`)
-			.replace(/define\(\s*'TRPL_VERSION'\s*,\s*'[^']+'\s*\);/, `define( 'TRPL_VERSION', '${nextVersion}' );`)
+			.replace(/define\(\s*['"]TRPL_VERSION['"]\s*,\s*['"][^'"]+['"]\s*\);/, `define("TRPL_VERSION", "${nextVersion}");`)
 	);
 
 	writeFileWithCheck(
@@ -192,7 +204,7 @@ function updateProjectVersion(nextVersion) {
 			markdownReadmeFile,
 			fs
 				.readFileSync(markdownReadmeFile, 'utf8')
-				.replace(/^\*\*Stable tag:\*\*\s*.+$/m, `**Stable tag:** ${nextVersion}  `)
+				.replace(/^\*\*Stable tag:\*\*\s*.+$/m, `**Stable tag:** ${nextVersion}`)
 		);
 	}
 

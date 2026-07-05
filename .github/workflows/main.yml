@@ -187,6 +187,9 @@ jobs:
           cp assets/screenshots/screenshot-2.png public/screenshots/screenshot-2.png
           cp assets/screenshots/screenshot-3.png public/screenshots/screenshot-3.png
           cp assets/screenshots/screenshot-4.png public/screenshots/screenshot-4.png
+          cp assets/screenshots/screenshot-5.png public/screenshots/screenshot-5.png
+          cp assets/screenshots/screenshot-6.png public/screenshots/screenshot-6.png
+          cp assets/screenshots/screenshot-7.png public/screenshots/screenshot-7.png
 
       - name: Explain missing Pages configuration
         if: ${{ env.PAGES_ENABLEMENT_TOKEN == '' && steps.pages_check.outputs.enabled != 'true' }}

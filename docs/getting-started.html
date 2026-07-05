@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Getting Started with Thumbnail Remover</title>
+    <title>Getting Started with Thumbnail Manager</title>
     <meta
       name="description"
-      content="Install Thumbnail Remover and Size Manager, run your first analysis, preview cleanup, and regenerate missing image sizes safely."
+      content="Install Thumbnail Manager, use the tabbed admin screen, run your first analysis, preview cleanup, and regenerate missing image sizes safely."
     >
     <link rel="canonical" href="https://mehdiraized.github.io/thumbnail-remover/getting-started.html">
     <link rel="stylesheet" href="styles.css">
@@ -18,7 +18,7 @@
         <p class="eyebrow">Getting Started</p>
         <h1>Install, analyze, preview, and clean up safely</h1>
         <p class="lead">
-          This guide walks through the safest first run for a production WordPress site.
+          This guide walks through the safest first run for a production WordPress site using the plugin's tabbed admin screen.
         </p>
 
         <h2>1. Install the plugin</h2>
@@ -26,33 +26,34 @@
           <li>Open <a href="https://wordpress.org/plugins/thumbnail-remover/">the WordPress.org plugin page</a>.</li>
           <li>Install and activate the plugin on your WordPress site.</li>
           <li>Go to <code>Tools &gt; Thumbnail Manager</code>.</li>
+          <li>Use the tabs at the top of the plugin screen to move between Analysis, Cleanup, Optimize, Backup, and Reports.</li>
         </ol>
 
         <h2>2. Run a full analysis</h2>
-        <p>Start with analysis before any cleanup. This gives you visibility into thumbnail storage, missing sizes, orphan files, and probably unused media.</p>
-        <img class="doc-image" src="screenshots/screenshot-1.png" alt="Library analysis screen">
+        <p>Start in the Analysis tab before any cleanup. This gives you visibility into thumbnail storage, missing sizes, orphan files, and probably unused media.</p>
+        <img class="doc-image" src="screenshots/screenshot-1.png" alt="Analysis tab with library results">
 
         <h2>3. Preview cleanup</h2>
-        <p>Select the size or upload folder you want to target, then use Preview Cleanup to estimate impact before moving files.</p>
-        <img class="doc-image" src="screenshots/screenshot-2.png" alt="Preview cleanup screen">
+        <p>Open the Cleanup tab, select the size or upload folder you want to target, then use Preview Cleanup to estimate impact before moving files.</p>
+        <img class="doc-image" src="screenshots/screenshot-2.png" alt="Cleanup tab preview screen">
 
         <h2>4. Move matching files to Trash</h2>
         <p>When you are confident in the preview, move the matching files to plugin Trash. This gives you a restore path instead of permanent deletion.</p>
-        <img class="doc-image" src="screenshots/screenshot-3.png" alt="Trash and restore screen">
+        <img class="doc-image" src="screenshots/screenshot-3.png" alt="Cleanup tab trash and restore screen">
 
         <h2>5. Regenerate missing sizes</h2>
-        <p>If you re-enable or keep a size, use batch regeneration to rebuild only what is missing.</p>
-        <img class="doc-image" src="screenshots/screenshot-4.png" alt="Regenerate missing sizes screen">
+        <p>If you re-enable or keep a size, open the Optimize tab and use batch regeneration to rebuild only what is missing.</p>
+        <img class="doc-image" src="screenshots/screenshot-4.png" alt="Optimize tab regenerate missing sizes screen">
 
         <h2>Recommended first workflow</h2>
         <ol>
           <li>Create a backup if the site is production-critical.</li>
-          <li>Run analysis and review the data.</li>
-          <li>Preview a narrow selection first.</li>
+          <li>Run analysis from the Analysis tab and review the data.</li>
+          <li>Preview a narrow selection first from the Cleanup tab.</li>
           <li>Move matching files to Trash.</li>
           <li>Verify the front end if needed.</li>
           <li>Restore a batch if something needs to be reversed.</li>
-          <li>Regenerate missing sizes only where needed.</li>
+          <li>Regenerate missing sizes only where needed from the Optimize tab.</li>
         </ol>
       </div>
     </main>
